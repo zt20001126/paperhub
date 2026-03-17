@@ -5,21 +5,27 @@ import com.baomidou.mybatisplus.core.metadata.IPage;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import org.paperhub.auth.dto.CreateLitRequestRequest;
 import org.paperhub.auth.entity.LitRequest;
+import org.paperhub.auth.entity.SysUser;
+import org.paperhub.auth.mapper.AuthMapper;
 import org.paperhub.auth.vo.PageResult;
+import org.paperhub.exception.BizException;
 import org.paperhub.literature.mapper.LitRequestMapper;
 import org.paperhub.literature.service.LitRequestService;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 @Service
 public class LitRequestServiceImpl implements LitRequestService {
     private final LitRequestMapper litRequestMapper;
+    private final AuthMapper authMapper;
 
-    public LitRequestServiceImpl(LitRequestMapper litRequestMapper) {
+    public LitRequestServiceImpl(LitRequestMapper litRequestMapper, AuthMapper authMapper) {
         this.litRequestMapper = litRequestMapper;
+        this.authMapper = authMapper;
     }
 
     /**
-     * 分页查询文献求助列表，并按发布时间倒序返回。
+     * Query literature requests by page and order by create time desc.
      */
     @Override
     public PageResult<LitRequest> page(long current, long size) {
@@ -38,16 +44,35 @@ public class LitRequestServiceImpl implements LitRequestService {
     }
 
     /**
-     * 将用户提交的求助信息写入 literature_request 表。
+     * sub_lit core flow:
+     * 1) verify user exists
+     * 2) verify user points are enough
+     * 3) deduct points
+     * 4) insert literature request
      */
     @Override
+    @Transactional(rollbackFor = Exception.class)
     public void subLit(CreateLitRequestRequest request) {
+        SysUser user = authMapper.selectById(request.getUserId());
+        if (user == null) {
+            throw new BizException("用户不存在");
+        }
+
+        int rewardPoints = request.getRewardPoints() == null ? 0 : request.getRewardPoints();
+        int currentPoints = user.getPoints() == null ? 0 : user.getPoints();
+        if (currentPoints < rewardPoints) {
+            throw new BizException("积分不足，无法发布求助");
+        }
+
+        user.setPoints(currentPoints - rewardPoints);
+        authMapper.updateById(user);
+
         LitRequest litRequest = new LitRequest();
-        litRequest.setUserId(request.getUserId());
+        litRequest.setUserId(user.getId());
         litRequest.setTitle(request.getTitle());
         litRequest.setJournal(request.getJournal());
         litRequest.setDoi(request.getDoi());
-        litRequest.setRewardPoints(request.getRewardPoints());
+        litRequest.setRewardPoints(rewardPoints);
         litRequest.setStatus(0);
         litRequestMapper.insert(litRequest);
     }

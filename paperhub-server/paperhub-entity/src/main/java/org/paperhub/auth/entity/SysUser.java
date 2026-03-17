@@ -27,6 +27,9 @@ public class SysUser {
     @TableField("status")
     private Integer status;
 
+    @TableField("points")
+    private Integer points;
+
     @TableField("create_time")
     private LocalDateTime createTime;
 
@@ -79,6 +82,14 @@ public class SysUser {
 
     public void setStatus(Integer status) {
         this.status = status;
+    }
+
+    public Integer getPoints() {
+        return points;
+    }
+
+    public void setPoints(Integer points) {
+        this.points = points;
     }
 
     public LocalDateTime getCreateTime() {

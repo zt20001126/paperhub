@@ -57,6 +57,7 @@ public class AuthServiceImpl implements AuthService {
         newUser.setPassword(passwordEncoder.encode(request.getPassword()));
         newUser.setNickname(defaultNickname(request.getEmail()));
         newUser.setStatus(1);
+        newUser.setPoints(100);
         authMapper.insert(newUser);
     }
 
@@ -80,6 +81,7 @@ public class AuthServiceImpl implements AuthService {
         vo.setId(user.getId());
         vo.setEmail(user.getEmail());
         vo.setNickname(user.getNickname());
+        vo.setPoints(user.getPoints());
         vo.setToken(UUID.randomUUID().toString().replace("-", ""));
         return vo;
     }

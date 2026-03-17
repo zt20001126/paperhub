@@ -96,6 +96,10 @@ function openPublishModal() {
     openAuthModal()
     return
   }
+  if ((currentUser.value?.points ?? 0) <= 0) {
+    publishHint.value = '当前积分不足，无法发布求助'
+    return
+  }
   publishVisible.value = true
   publishHint.value = ''
   publishForm.title = ''
@@ -185,7 +189,7 @@ function goNextPage() {
 async function submitPublishForm() {
   publishHint.value = ''
   if (!publishForm.title.trim() || !publishForm.journal.trim() || !publishForm.doi.trim()) {
-    publishHint.value = '请完整填写论文标题、期刊和 DOI。'
+    publishHint.value = '请完整填写论文标题、期刊和 DOI'
     return
   }
 
@@ -203,6 +207,13 @@ async function submitPublishForm() {
       })
     })
     await readApiData(response, '发布求助失败')
+    if (currentUser.value) {
+      currentUser.value.points = Math.max(
+        0,
+        (currentUser.value.points || 0) - Number(publishForm.rewardPoints || 0)
+      )
+      localStorage.setItem(STORAGE_USER_KEY, JSON.stringify(currentUser.value))
+    }
     closePublishModal()
     fetchLitRequests(1)
   } catch (error) {
@@ -300,6 +311,7 @@ async function handleLogin() {
       id: data.id,
       email: data.email,
       nickname: data.nickname,
+      points: data.points ?? 0,
       token: data.token,
       avatarUrl: data.avatarUrl || ''
     }
