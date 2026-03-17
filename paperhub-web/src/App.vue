@@ -1,12 +1,15 @@
 <script setup>
 import { computed, onBeforeUnmount, onMounted, reactive, ref } from 'vue'
 
+const STORAGE_USER_KEY = 'paperhub_login_user'
+
 const showWelcome = ref(true)
 const authVisible = ref(false)
 const authMode = ref('login')
 const sendCodeCountdown = ref(0)
 const statusMessage = ref('')
 const loading = ref(false)
+const currentUser = ref(null)
 
 const loginForm = reactive({
   email: '',
@@ -26,27 +29,32 @@ let codeTimer = null
 const codeButtonText = computed(() =>
   sendCodeCountdown.value > 0 ? `${sendCodeCountdown.value}s` : '发送验证码'
 )
+const displayName = computed(() => currentUser.value?.nickname || currentUser.value?.email || '用户')
+const avatarText = computed(() => displayName.value.trim().slice(0, 1).toUpperCase())
 
 onMounted(() => {
   welcomeTimer = setTimeout(() => {
     showWelcome.value = false
   }, 2400)
+
+  const savedUser = localStorage.getItem(STORAGE_USER_KEY)
+  if (savedUser) {
+    try {
+      currentUser.value = JSON.parse(savedUser)
+    } catch {
+      localStorage.removeItem(STORAGE_USER_KEY)
+    }
+  }
 })
 
 onBeforeUnmount(() => {
-  if (welcomeTimer) {
-    clearTimeout(welcomeTimer)
-  }
-  if (codeTimer) {
-    clearInterval(codeTimer)
-  }
+  if (welcomeTimer) clearTimeout(welcomeTimer)
+  if (codeTimer) clearInterval(codeTimer)
 })
 
 function enterMain() {
   showWelcome.value = false
-  if (welcomeTimer) {
-    clearTimeout(welcomeTimer)
-  }
+  if (welcomeTimer) clearTimeout(welcomeTimer)
 }
 
 function openAuthModal() {
@@ -60,15 +68,18 @@ function closeAuthModal() {
   statusMessage.value = ''
 }
 
+function logout() {
+  currentUser.value = null
+  localStorage.removeItem(STORAGE_USER_KEY)
+}
+
 function isValidEmail(email) {
   return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)
 }
 
 function startCodeCountdown(seconds = 60) {
   sendCodeCountdown.value = seconds
-  if (codeTimer) {
-    clearInterval(codeTimer)
-  }
+  if (codeTimer) clearInterval(codeTimer)
   codeTimer = setInterval(() => {
     sendCodeCountdown.value -= 1
     if (sendCodeCountdown.value <= 0) {
@@ -78,15 +89,26 @@ function startCodeCountdown(seconds = 60) {
   }, 1000)
 }
 
+async function readApiData(response, defaultErrorMessage) {
+  let body = null
+  try {
+    body = await response.json()
+  } catch {
+    throw new Error(defaultErrorMessage)
+  }
+  if (!response.ok || !body?.success) {
+    throw new Error(body?.message || defaultErrorMessage)
+  }
+  return body.data
+}
+
 async function sendCode() {
   statusMessage.value = ''
   if (!isValidEmail(registerForm.email)) {
     statusMessage.value = '请输入有效的邮箱地址'
     return
   }
-  if (sendCodeCountdown.value > 0) {
-    return
-  }
+  if (sendCodeCountdown.value > 0) return
 
   loading.value = true
   try {
@@ -95,15 +117,11 @@ async function sendCode() {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ email: registerForm.email })
     })
-
-    if (!response.ok) {
-      throw new Error('发送失败')
-    }
-
+    await readApiData(response, '验证码发送失败')
     startCodeCountdown(60)
     statusMessage.value = '验证码已发送，请查收邮箱'
   } catch (error) {
-    statusMessage.value = '验证码发送失败，请稍后重试'
+    statusMessage.value = error.message || '验证码发送失败，请稍后重试'
   } finally {
     loading.value = false
   }
@@ -139,15 +157,11 @@ async function handleRegister() {
         password: registerForm.password
       })
     })
-
-    if (!response.ok) {
-      throw new Error('注册失败')
-    }
-
+    await readApiData(response, '注册失败')
     statusMessage.value = '注册成功，请登录'
     authMode.value = 'login'
   } catch (error) {
-    statusMessage.value = '注册失败，请确认验证码或稍后重试'
+    statusMessage.value = error.message || '注册失败，请稍后重试'
   } finally {
     loading.value = false
   }
@@ -171,15 +185,19 @@ async function handleLogin() {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(loginForm)
     })
-
-    if (!response.ok) {
-      throw new Error('登录失败')
+    const data = await readApiData(response, '登录失败')
+    const user = {
+      id: data.id,
+      email: data.email,
+      nickname: data.nickname,
+      token: data.token,
+      avatarUrl: data.avatarUrl || ''
     }
-
-    statusMessage.value = '登录成功'
+    currentUser.value = user
+    localStorage.setItem(STORAGE_USER_KEY, JSON.stringify(user))
     closeAuthModal()
   } catch (error) {
-    statusMessage.value = '登录失败，请检查邮箱或密码'
+    statusMessage.value = error.message || '登录失败，请检查邮箱或密码'
   } finally {
     loading.value = false
   }
@@ -207,8 +225,25 @@ async function handleLogin() {
           <nav class="menu">
             <a class="menu-item active" href="javascript:void(0)">文献互助</a>
           </nav>
-          <button class="auth-btn" @click="openAuthModal">登录</button>
+
+          <div v-if="currentUser" class="user-menu-wrap">
+            <div class="user-trigger">
+              <img
+                v-if="currentUser.avatarUrl"
+                class="user-avatar"
+                :src="currentUser.avatarUrl"
+                alt="avatar"
+              />
+              <div v-else class="user-avatar user-avatar-fallback">{{ avatarText }}</div>
+              <span class="user-name">{{ displayName }}</span>
+            </div>
+            <div class="user-dropdown">
+              <button class="logout-btn" type="button" @click="logout">退出登录</button>
+            </div>
+          </div>
+          <button v-else class="auth-btn" @click="openAuthModal">登录</button>
         </header>
+
         <main class="main-content">
           <h2>文献互助</h2>
           <p>在这里发起求助、共享论文、建立学术连接。</p>
@@ -253,11 +288,7 @@ async function handleLogin() {
             <label>密码</label>
             <input v-model="registerForm.password" type="password" placeholder="至少 6 位" />
             <label>确认密码</label>
-            <input
-              v-model="registerForm.confirmPassword"
-              type="password"
-              placeholder="再次输入密码"
-            />
+            <input v-model="registerForm.confirmPassword" type="password" placeholder="再次输入密码" />
             <button class="primary-btn full" type="submit" :disabled="loading">
               {{ loading ? '提交中...' : '注册' }}
             </button>

@@ -156,6 +156,84 @@ body {
   background: rgba(29, 86, 189, 0.6);
 }
 
+.user-menu-wrap {
+  position: relative;
+  margin-left: auto;
+  padding-bottom: 6px;
+}
+
+.user-trigger {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 6px 10px;
+  border-radius: 999px;
+  border: 1px solid rgba(198, 220, 255, 0.34);
+  background: rgba(19, 66, 153, 0.45);
+}
+
+.user-avatar {
+  width: 30px;
+  height: 30px;
+  border-radius: 50%;
+  object-fit: cover;
+}
+
+.user-avatar-fallback {
+  display: grid;
+  place-items: center;
+  font-weight: 700;
+  background: rgba(96, 156, 255, 0.9);
+  color: #ffffff;
+}
+
+.user-name {
+  font-size: 14px;
+  color: #ebf3ff;
+  max-width: 140px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.user-dropdown {
+  position: absolute;
+  right: 0;
+  top: calc(100% - 1px);
+  min-width: 130px;
+  border-radius: 12px;
+  border: 1px solid var(--line);
+  background: rgba(8, 31, 90, 0.96);
+  box-shadow: 0 12px 30px rgba(3, 12, 35, 0.35);
+  padding: 8px;
+  opacity: 0;
+  transform: translateY(-4px);
+  pointer-events: none;
+  transition: all 0.2s ease;
+}
+
+.user-menu-wrap:hover .user-dropdown,
+.user-menu-wrap:focus-within .user-dropdown {
+  opacity: 1;
+  transform: translateY(0);
+  pointer-events: auto;
+}
+
+.logout-btn {
+  width: 100%;
+  border: none;
+  border-radius: 8px;
+  padding: 8px 10px;
+  text-align: left;
+  background: transparent;
+  color: #dce9ff;
+  cursor: pointer;
+}
+
+.logout-btn:hover {
+  background: rgba(74, 133, 255, 0.25);
+}
+
 .main-content {
   flex: 1;
   display: grid;

@@ -55,7 +55,7 @@ public class AuthService {
         if (!Integer.valueOf(1).equals(user.getStatus())) {
             throw new BizException("账号已被禁用");
         }
-        if (!passwordEncoder.matches(request.getPassword(), user.getPassword())) {
+        if (!verifyPassword(user, request.getPassword())) {
             throw new BizException("邮箱或密码错误");
         }
 
@@ -65,6 +65,26 @@ public class AuthService {
         vo.setNickname(user.getNickname());
         vo.setToken(UUID.randomUUID().toString().replace("-", ""));
         return vo;
+    }
+
+    private boolean verifyPassword(SysUser user, String rawPassword) {
+        String storedPassword = user.getPassword();
+        if (storedPassword == null || storedPassword.isEmpty()) {
+            return false;
+        }
+
+        // Backward compatibility: allow old plaintext accounts once, then upgrade to bcrypt.
+        if (storedPassword.startsWith("$2a$") || storedPassword.startsWith("$2b$") || storedPassword.startsWith("$2y$")) {
+            return passwordEncoder.matches(rawPassword, storedPassword);
+        }
+
+        if (!storedPassword.equals(rawPassword)) {
+            return false;
+        }
+
+        user.setPassword(passwordEncoder.encode(rawPassword));
+        sysUserMapper.updateById(user);
+        return true;
     }
 
     private SysUser findByEmail(String email) {
