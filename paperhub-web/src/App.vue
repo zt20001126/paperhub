@@ -46,6 +46,7 @@ const profileForm = reactive({
 const helpFile = ref(null)
 const helpFileName = ref('')
 const helpHint = ref('')
+const helpSubmitting = ref(false)
 
 const loginForm = reactive({
   email: '',
@@ -198,6 +199,10 @@ function pickPublisherAvatar(item) {
   return getAvatar(item)
 }
 
+function pickPublisherId(item) {
+  return item?.publisherId || item?.userId || '--'
+}
+
 function pickProcessTime(item) {
   return formatDate(item?.updateTime || item?.processTime || item?.createTime)
 }
@@ -273,6 +278,48 @@ function submitLitHelp() {
     return
   }
   helpHint.value = `提交接口已预留：${HELP_SUBMIT_API}，当前未接入后端处理逻辑`
+}
+
+async function submitLitHelpRequest() {
+  if (!currentUser.value?.id) {
+    helpHint.value = '请先登录后再提交应助文献'
+    return
+  }
+
+  if (!selectedLit.value?.id) {
+    helpHint.value = '未找到文献信息，请返回列表后重试'
+    return
+  }
+
+  if (!helpFile.value) {
+    helpHint.value = '请先上传文献文件'
+    return
+  }
+
+  helpSubmitting.value = true
+  helpHint.value = ''
+  try {
+    const formData = new FormData()
+    formData.append('litRequestId', String(selectedLit.value.id))
+    formData.append('userId', String(currentUser.value.id))
+    formData.append('file', helpFile.value)
+
+    const headers = currentUser.value?.token ? { Authorization: `Bearer ${currentUser.value.token}` } : undefined
+    const response = await fetch(HELP_SUBMIT_API, {
+      method: 'POST',
+      headers,
+      body: formData
+    })
+
+    await readApiData(response, '应助提交失败，请稍后重试')
+    helpHint.value = '提交成功，等待发布者处理'
+    helpFile.value = null
+    helpFileName.value = ''
+  } catch (error) {
+    helpHint.value = error.message || '应助提交失败，请稍后重试'
+  } finally {
+    helpSubmitting.value = false
+  }
 }
 
 function handleAvatarSelect(event) {
@@ -491,6 +538,8 @@ async function handleLogin() {
           <div class="brand">PaperHub</div>
           <nav class="menu">
             <a class="menu-item active" href="javascript:void(0)">文献互助</a>
+            <a class="menu-item" href="javascript:void(0)">当日热点</a>
+            <a class="menu-item" href="javascript:void(0)">交流社区</a>
           </nav>
 
           <div class="top-actions">
@@ -600,6 +649,7 @@ async function handleLogin() {
                     <div class="publisher-info">
                       <p>昵称：{{ pickPublisherNickname(selectedLit) }}</p>
                       <p>邮箱：{{ pickPublisherEmail(selectedLit) }}</p>
+                      <p>发布者ID：{{ pickPublisherId(selectedLit) }}</p>
                     </div>
                   </div>
                 </aside>
@@ -617,7 +667,9 @@ async function handleLogin() {
                   <span v-else class="file-placeholder">尚未选择文件</span>
                 </div>
                 <div v-if="helpFile" class="help-submit-row">
-                  <button class="primary-btn" type="button" @click="submitLitHelp">提交</button>
+                  <button class="primary-btn" type="button" :disabled="helpSubmitting" @click="submitLitHelpRequest">
+                    {{ helpSubmitting ? '提交中...' : '提交' }}
+                  </button>
                 </div>
                 <p v-if="helpHint" class="status">{{ helpHint }}</p>
               </div>
