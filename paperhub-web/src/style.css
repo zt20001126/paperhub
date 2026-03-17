@@ -359,6 +359,17 @@ body {
   box-shadow: 0 18px 36px rgba(1, 10, 32, 0.4);
 }
 
+.lit-card-top {
+  display: flex;
+  align-items: flex-start;
+  gap: 18px;
+}
+
+.lit-card-body {
+  flex: 1;
+  min-width: 0;
+}
+
 .lit-title {
   margin: 0 0 11px;
   font-size: 19px;
@@ -418,6 +429,174 @@ body {
   background: rgba(114, 236, 179, 0.12);
   color: #90f0c2;
   border-color: rgba(114, 236, 179, 0.3);
+}
+
+.lit-card-action {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 122px;
+}
+
+.help-btn {
+  width: 100%;
+  white-space: nowrap;
+}
+
+.detail-panel {
+  display: grid;
+  gap: 16px;
+}
+
+.detail-top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.detail-top h2 {
+  margin: 0;
+  font-size: clamp(28px, 4vw, 40px);
+}
+
+.detail-card {
+  padding: 22px;
+}
+
+.detail-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1.5fr) minmax(280px, 0.9fr);
+  gap: 18px;
+}
+
+.detail-main {
+  min-width: 0;
+}
+
+.detail-info-list {
+  display: grid;
+  gap: 12px;
+}
+
+.detail-info-item {
+  display: grid;
+  gap: 6px;
+  padding: 14px 16px;
+  border: 1px solid rgba(159, 201, 255, 0.18);
+  border-radius: 14px;
+  background: rgba(17, 58, 140, 0.2);
+}
+
+.detail-label {
+  color: #99bbff;
+  font-size: 12px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.detail-value {
+  color: #eef5ff;
+  font-size: 15px;
+  line-height: 1.5;
+}
+
+.detail-code {
+  font-family: "Consolas", "Courier New", monospace;
+}
+
+.publisher-card,
+.help-upload-panel {
+  border: 1px solid rgba(159, 201, 255, 0.18);
+  border-radius: 16px;
+  background: rgba(13, 48, 120, 0.24);
+  padding: 18px;
+}
+
+.publisher-card h4,
+.help-upload-panel h4 {
+  margin: 0 0 14px;
+  font-size: 18px;
+  color: #f1f7ff;
+}
+
+.publisher-main {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+}
+
+.publisher-avatar {
+  width: 68px;
+  height: 68px;
+  border-radius: 50%;
+  object-fit: cover;
+  border: 1px solid rgba(205, 227, 255, 0.45);
+}
+
+.publisher-info {
+  display: grid;
+  gap: 8px;
+}
+
+.publisher-info p {
+  margin: 0;
+  color: #d7e6ff;
+}
+
+.help-upload-panel {
+  margin-top: 18px;
+}
+
+.help-upload-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 14px;
+}
+
+.help-api-tag {
+  display: inline-flex;
+  align-items: center;
+  padding: 6px 10px;
+  border-radius: 999px;
+  border: 1px solid rgba(159, 201, 255, 0.2);
+  background: rgba(35, 100, 221, 0.2);
+  color: #b8d4ff;
+  font-size: 12px;
+  font-family: "Consolas", "Courier New", monospace;
+}
+
+.help-upload-area {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.upload-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.hidden-input {
+  display: none;
+}
+
+.file-name,
+.file-placeholder {
+  color: #d5e5ff;
+  font-size: 14px;
+}
+
+.file-placeholder {
+  opacity: 0.8;
+}
+
+.help-submit-row {
+  margin-top: 16px;
 }
 
 .lit-empty {
@@ -646,6 +825,17 @@ body {
     padding: 7px 10px;
     font-size: 13px;
   }
+
+  .lit-card-top,
+  .detail-grid {
+    grid-template-columns: 1fr;
+    display: grid;
+  }
+
+  .lit-card-action {
+    justify-content: flex-start;
+    min-width: 0;
+  }
 }
 
 @media (max-width: 640px) {
@@ -672,6 +862,17 @@ body {
   .lit-footer > span {
     width: fit-content;
     max-width: 100%;
+  }
+
+  .detail-top {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
+  .publisher-main,
+  .help-upload-area {
+    align-items: flex-start;
+    flex-direction: column;
   }
 
   .auth-modal {

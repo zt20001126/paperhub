@@ -2,6 +2,7 @@
 import { computed, onBeforeUnmount, onMounted, reactive, ref } from 'vue'
 
 const STORAGE_USER_KEY = 'paperhub_login_user'
+const HELP_SUBMIT_API = '/sub_lit_help'
 
 const showWelcome = ref(true)
 const authVisible = ref(false)
@@ -15,6 +16,8 @@ const currentUser = ref(null)
 
 const litLoading = ref(false)
 const litError = ref('')
+const viewMode = ref('list')
+const selectedLit = ref(null)
 const litPage = reactive({
   current: 1,
   size: 5,
@@ -40,6 +43,10 @@ const profileForm = reactive({
   email: ''
 })
 
+const helpFile = ref(null)
+const helpFileName = ref('')
+const helpHint = ref('')
+
 const loginForm = reactive({
   email: '',
   password: ''
@@ -55,11 +62,13 @@ const registerForm = reactive({
 let welcomeTimer = null
 let codeTimer = null
 
-const codeButtonText = computed(() =>
-  sendCodeCountdown.value > 0 ? `${sendCodeCountdown.value}s` : '发送验证码'
-)
+const codeButtonText = computed(() => (sendCodeCountdown.value > 0 ? `${sendCodeCountdown.value}s` : '发送验证码'))
 const displayName = computed(() => currentUser.value?.nickname || currentUser.value?.email || '用户')
 const avatarText = computed(() => displayName.value.trim().slice(0, 1).toUpperCase())
+const detailAvatarText = computed(() => {
+  const name = pickPublisherNickname(selectedLit.value)
+  return String(name || 'U').trim().slice(0, 1).toUpperCase()
+})
 
 onMounted(() => {
   welcomeTimer = setTimeout(() => {
@@ -165,6 +174,34 @@ function statusText(status) {
   return '未知'
 }
 
+function getNickname(item) {
+  return item?.publisherNickname || item?.userNickname || item?.nickname || '--'
+}
+
+function getEmail(item) {
+  return item?.publisherEmail || item?.userEmail || item?.email || '--'
+}
+
+function getAvatar(item) {
+  return item?.publisherAvatarUrl || item?.userAvatarUrl || item?.avatarUrl || ''
+}
+
+function pickPublisherNickname(item) {
+  return getNickname(item)
+}
+
+function pickPublisherEmail(item) {
+  return getEmail(item)
+}
+
+function pickPublisherAvatar(item) {
+  return getAvatar(item)
+}
+
+function pickProcessTime(item) {
+  return formatDate(item?.updateTime || item?.processTime || item?.createTime)
+}
+
 async function readApiData(response, defaultErrorMessage) {
   let body = null
   try {
@@ -172,6 +209,7 @@ async function readApiData(response, defaultErrorMessage) {
   } catch {
     throw new Error(defaultErrorMessage)
   }
+
   if (!response.ok || !body?.success) {
     throw new Error(body?.message || defaultErrorMessage)
   }
@@ -205,6 +243,38 @@ function goNextPage() {
   if (litPage.current < litPage.pages) fetchLitRequests(litPage.current + 1)
 }
 
+function openHelpDetail(item) {
+  selectedLit.value = item
+  viewMode.value = 'detail'
+  helpFile.value = null
+  helpFileName.value = ''
+  helpHint.value = ''
+}
+
+function backToList() {
+  viewMode.value = 'list'
+  selectedLit.value = null
+  helpFile.value = null
+  helpFileName.value = ''
+  helpHint.value = ''
+}
+
+function onHelpFileChange(event) {
+  const file = event.target.files?.[0]
+  if (!file) return
+  helpFile.value = file
+  helpFileName.value = file.name
+  helpHint.value = ''
+}
+
+function submitLitHelp() {
+  if (!helpFile.value) {
+    helpHint.value = '请先上传文献文件'
+    return
+  }
+  helpHint.value = `提交接口已预留：${HELP_SUBMIT_API}，当前未接入后端处理逻辑`
+}
+
 function handleAvatarSelect(event) {
   const file = event.target.files?.[0]
   if (!file) return
@@ -231,7 +301,7 @@ async function saveProfile() {
   profileHint.value = ''
   const nickname = (profileForm.nickname || '').trim()
   if (nickname.length < 2 || nickname.length > 20) {
-    profileHint.value = '昵称长度需在 2-20 个字符'
+    profileHint.value = '昵称长度需在 2-20 个字符之间'
     return
   }
 
@@ -248,8 +318,8 @@ async function saveProfile() {
         nickname
       })
     })
-    await readApiData(response, '修改失败')
 
+    await readApiData(response, '修改失败')
     currentUser.value = {
       ...currentUser.value,
       avatarUrl: profileForm.avatarUrl,
@@ -284,6 +354,7 @@ async function submitPublishForm() {
         rewardPoints: Number(publishForm.rewardPoints || 0)
       })
     })
+
     await readApiData(response, '发布求助失败')
     closePublishModal()
     fetchLitRequests(1)
@@ -309,6 +380,7 @@ async function sendCode() {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ email: registerForm.email })
     })
+
     await readApiData(response, '验证码发送失败')
     startCodeCountdown(60)
     statusMessage.value = '验证码已发送，请查收邮箱'
@@ -349,6 +421,7 @@ async function handleRegister() {
         password: registerForm.password
       })
     })
+
     await readApiData(response, '注册失败')
     statusMessage.value = '注册成功，请登录'
     authMode.value = 'login'
@@ -377,6 +450,7 @@ async function handleLogin() {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(loginForm)
     })
+
     const data = await readApiData(response, '登录失败')
     const user = {
       id: data.id,
@@ -437,7 +511,7 @@ async function handleLogin() {
         </header>
 
         <main class="main-content">
-          <section class="lit-panel">
+          <section v-if="viewMode === 'list'" class="lit-panel">
             <div class="lit-panel-header">
               <h2>文献互助</h2>
               <span>共 {{ litPage.total }} 条</span>
@@ -448,21 +522,26 @@ async function handleLogin() {
             <div v-else-if="litPage.records.length === 0" class="lit-empty">暂无文献互助记录</div>
             <div v-else class="lit-list">
               <article v-for="item in litPage.records" :key="item.id" class="lit-card">
-                <h3 class="lit-title">{{ item.title }}</h3>
-                <p class="lit-meta">期刊：{{ item.journal || '--' }}</p>
-                <p class="lit-meta">DOI：{{ item.doi || '--' }}</p>
-                <div class="lit-footer">
-                  <span>悬赏积分：{{ item.rewardPoints ?? 0 }}</span>
-                  <span>状态：{{ statusText(item.status) }}</span>
-                  <span>发布时间：{{ formatDate(item.createTime) }}</span>
+                <div class="lit-card-top">
+                  <div class="lit-card-body">
+                    <h3 class="lit-title">{{ item.title }}</h3>
+                    <p class="lit-meta">发表期刊：{{ item.journal || '--' }}</p>
+                    <p class="lit-meta">DOI：{{ item.doi || '--' }}</p>
+                    <div class="lit-footer">
+                      <span>悬赏积分：{{ item.rewardPoints ?? 0 }}</span>
+                      <span>状态：{{ statusText(item.status) }}</span>
+                      <span>发布时间：{{ formatDate(item.createTime) }}</span>
+                    </div>
+                  </div>
+                  <div class="lit-card-action">
+                    <button class="primary-btn help-btn" type="button" @click="openHelpDetail(item)">我要应助</button>
+                  </div>
                 </div>
               </article>
             </div>
 
             <div class="pager">
-              <button class="pager-btn" :disabled="litPage.current <= 1 || litLoading" @click="goPrevPage">
-                上一页
-              </button>
+              <button class="pager-btn" :disabled="litPage.current <= 1 || litLoading" @click="goPrevPage">上一页</button>
               <span class="pager-text">第 {{ litPage.current }} / {{ litPage.pages || 1 }} 页</span>
               <button
                 class="pager-btn"
@@ -472,6 +551,77 @@ async function handleLogin() {
                 下一页
               </button>
             </div>
+          </section>
+
+          <section v-else class="lit-panel detail-panel">
+            <div class="detail-top">
+              <button class="ghost-btn" type="button" @click="backToList">返回文献互助</button>
+              <h2>文献详情</h2>
+            </div>
+
+            <article v-if="selectedLit" class="lit-card detail-card">
+              <div class="detail-grid">
+                <div class="detail-main">
+                  <h3 class="lit-title">{{ selectedLit.title || '--' }}</h3>
+                  <div class="detail-info-list">
+                    <div class="detail-info-item">
+                      <span class="detail-label">发表期刊</span>
+                      <span class="detail-value">{{ selectedLit.journal || '--' }}</span>
+                    </div>
+                    <div class="detail-info-item">
+                      <span class="detail-label">DOI</span>
+                      <span class="detail-value detail-code">{{ selectedLit.doi || '--' }}</span>
+                    </div>
+                    <div class="detail-info-item">
+                      <span class="detail-label">悬赏积分</span>
+                      <span class="detail-value">{{ selectedLit.rewardPoints ?? 0 }}</span>
+                    </div>
+                    <div class="detail-info-item">
+                      <span class="detail-label">状态</span>
+                      <span class="detail-value">{{ statusText(selectedLit.status) }}</span>
+                    </div>
+                    <div class="detail-info-item">
+                      <span class="detail-label">处理时间</span>
+                      <span class="detail-value">{{ pickProcessTime(selectedLit) }}</span>
+                    </div>
+                  </div>
+                </div>
+
+                <aside class="publisher-card">
+                  <h4>发布者信息</h4>
+                  <div class="publisher-main">
+                    <img
+                      v-if="pickPublisherAvatar(selectedLit)"
+                      class="publisher-avatar"
+                      :src="pickPublisherAvatar(selectedLit)"
+                      alt="publisher"
+                    />
+                    <div v-else class="publisher-avatar user-avatar-fallback">{{ detailAvatarText }}</div>
+                    <div class="publisher-info">
+                      <p>昵称：{{ pickPublisherNickname(selectedLit) }}</p>
+                      <p>邮箱：{{ pickPublisherEmail(selectedLit) }}</p>
+                    </div>
+                  </div>
+                </aside>
+              </div>
+
+              <div class="help-upload-panel">
+                <div class="help-upload-head">
+                  <h4>上传文献</h4>
+                  <span class="help-api-tag">{{ HELP_SUBMIT_API }}</span>
+                </div>
+                <div class="help-upload-area">
+                  <label class="publish-btn upload-btn" for="help-upload-input">选择文件</label>
+                  <input id="help-upload-input" class="hidden-input" type="file" @change="onHelpFileChange" />
+                  <span v-if="helpFileName" class="file-name">{{ helpFileName }}</span>
+                  <span v-else class="file-placeholder">尚未选择文件</span>
+                </div>
+                <div v-if="helpFile" class="help-submit-row">
+                  <button class="primary-btn" type="button" @click="submitLitHelp">提交</button>
+                </div>
+                <p v-if="helpHint" class="status">{{ helpHint }}</p>
+              </div>
+            </article>
           </section>
         </main>
       </section>
@@ -491,7 +641,7 @@ async function handleLogin() {
               {{ loading ? '提交中...' : '登录' }}
             </button>
             <p class="switch-tip">
-              如果没有 PaperHub 账户？
+              如果没有 PaperHub 账户，
               <button class="switch-link" type="button" @click="authMode = 'register'">去注册</button>
             </p>
           </form>
@@ -514,7 +664,7 @@ async function handleLogin() {
               {{ loading ? '提交中...' : '注册' }}
             </button>
             <p class="switch-tip">
-              已有 PaperHub 账户？
+              已有 PaperHub 账户，
               <button class="switch-link" type="button" @click="authMode = 'login'">去登录</button>
             </p>
           </form>
