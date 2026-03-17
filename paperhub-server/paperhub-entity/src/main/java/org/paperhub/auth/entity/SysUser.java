@@ -7,7 +7,7 @@ import com.baomidou.mybatisplus.annotation.TableName;
 
 import java.time.LocalDateTime;
 
-@TableName("sys_user")
+@TableName("paperhub_user")
 public class SysUser {
     @TableId(value = "id", type = IdType.AUTO)
     private Long id;

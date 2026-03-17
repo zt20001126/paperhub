@@ -1,8 +1,8 @@
-package org.paperhub.lit.controller;
+package org.paperhub.literature.controller;
 
 import org.paperhub.auth.entity.LitRequest;
 import org.paperhub.auth.vo.PageResult;
-import org.paperhub.lit.service.LitRequestService;
+import org.paperhub.literature.service.LitRequestService;
 import org.paperhub.result.Result;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RequestMapping;

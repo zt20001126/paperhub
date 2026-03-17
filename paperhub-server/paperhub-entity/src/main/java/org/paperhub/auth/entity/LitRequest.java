@@ -7,7 +7,7 @@ import com.baomidou.mybatisplus.annotation.TableName;
 
 import java.time.LocalDateTime;
 
-@TableName("lit_request")
+@TableName("literature_request")
 public class LitRequest {
     @TableId(value = "id", type = IdType.AUTO)
     private Long id;

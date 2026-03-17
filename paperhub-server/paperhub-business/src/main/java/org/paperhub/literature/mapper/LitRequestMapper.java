@@ -1,4 +1,4 @@
-package org.paperhub.auth.mapper;
+package org.paperhub.literature.mapper;
 
 import com.baomidou.mybatisplus.core.mapper.BaseMapper;
 import org.paperhub.auth.entity.LitRequest;

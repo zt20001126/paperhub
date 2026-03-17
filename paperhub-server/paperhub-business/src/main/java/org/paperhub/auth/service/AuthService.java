@@ -1,103 +1,13 @@
 package org.paperhub.auth.service;
 
-import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
-import org.paperhub.auth.mapper.SysUserMapper;
-import org.paperhub.exception.BizException;
-import org.paperhub.auth.entity.SysUser;
 import org.paperhub.auth.dto.LoginRequest;
 import org.paperhub.auth.dto.RegisterRequest;
 import org.paperhub.auth.vo.LoginUserVO;
-import org.springframework.security.crypto.password.PasswordEncoder;
-import org.springframework.stereotype.Service;
 
-import java.util.UUID;
+public interface AuthService {
+    void sendRegisterCode(String email);
 
-@Service
-public class AuthService {
-    private final SysUserMapper sysUserMapper;
-    private final PasswordEncoder passwordEncoder;
-    private final EmailCodeService emailCodeService;
+    void register(RegisterRequest request);
 
-    public AuthService(SysUserMapper sysUserMapper, PasswordEncoder passwordEncoder, EmailCodeService emailCodeService) {
-        this.sysUserMapper = sysUserMapper;
-        this.passwordEncoder = passwordEncoder;
-        this.emailCodeService = emailCodeService;
-    }
-
-    public void sendRegisterCode(String email) {
-        SysUser user = findByEmail(email);
-        if (user != null) {
-            throw new BizException("该邮箱已注册");
-        }
-        emailCodeService.sendCode(email);
-    }
-
-    public void register(RegisterRequest request) {
-        SysUser existing = findByEmail(request.getEmail());
-        if (existing != null) {
-            throw new BizException("该邮箱已注册");
-        }
-        emailCodeService.verifyCode(request.getEmail(), request.getCode());
-
-        SysUser newUser = new SysUser();
-        newUser.setEmail(request.getEmail());
-        newUser.setPassword(passwordEncoder.encode(request.getPassword()));
-        newUser.setNickname(defaultNickname(request.getEmail()));
-        newUser.setStatus(1);
-        sysUserMapper.insert(newUser);
-    }
-
-    public LoginUserVO login(LoginRequest request) {
-        SysUser user = findByEmail(request.getEmail());
-        if (user == null) {
-            throw new BizException("账号不存在");
-        }
-        if (!Integer.valueOf(1).equals(user.getStatus())) {
-            throw new BizException("账号已被禁用");
-        }
-        if (!verifyPassword(user, request.getPassword())) {
-            throw new BizException("邮箱或密码错误");
-        }
-
-        LoginUserVO vo = new LoginUserVO();
-        vo.setId(user.getId());
-        vo.setEmail(user.getEmail());
-        vo.setNickname(user.getNickname());
-        vo.setToken(UUID.randomUUID().toString().replace("-", ""));
-        return vo;
-    }
-
-    private boolean verifyPassword(SysUser user, String rawPassword) {
-        String storedPassword = user.getPassword();
-        if (storedPassword == null || storedPassword.isEmpty()) {
-            return false;
-        }
-
-        // Backward compatibility: allow old plaintext accounts once, then upgrade to bcrypt.
-        if (storedPassword.startsWith("$2a$") || storedPassword.startsWith("$2b$") || storedPassword.startsWith("$2y$")) {
-            return passwordEncoder.matches(rawPassword, storedPassword);
-        }
-
-        if (!storedPassword.equals(rawPassword)) {
-            return false;
-        }
-
-        user.setPassword(passwordEncoder.encode(rawPassword));
-        sysUserMapper.updateById(user);
-        return true;
-    }
-
-    private SysUser findByEmail(String email) {
-        LambdaQueryWrapper<SysUser> query = new LambdaQueryWrapper<>();
-        query.eq(SysUser::getEmail, email).last("LIMIT 1");
-        return sysUserMapper.selectOne(query);
-    }
-
-    private String defaultNickname(String email) {
-        int index = email.indexOf('@');
-        if (index <= 0) {
-            return "paperhub_user";
-        }
-        return email.substring(0, index);
-    }
+    LoginUserVO login(LoginRequest request);
 }

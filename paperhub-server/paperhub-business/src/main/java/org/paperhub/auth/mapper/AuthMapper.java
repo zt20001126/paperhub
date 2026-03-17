@@ -5,5 +5,5 @@ import org.paperhub.auth.entity.SysUser;
 import org.springframework.stereotype.Repository;
 
 @Repository
-public interface SysUserMapper extends BaseMapper<SysUser> {
+public interface AuthMapper extends BaseMapper<SysUser> {
 }
