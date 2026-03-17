@@ -1,4 +1,4 @@
-package org.paperhub.business.config;
+package org.paperhub.config;
 
 import org.mybatis.spring.annotation.MapperScan;
 import org.springframework.context.annotation.Configuration;

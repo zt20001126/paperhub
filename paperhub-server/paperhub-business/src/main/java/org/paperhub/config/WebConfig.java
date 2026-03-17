@@ -1,4 +1,4 @@
-package org.paperhub.business.config;
+package org.paperhub.config;
 
 import org.springframework.context.annotation.Configuration;
 import org.springframework.web.servlet.config.annotation.CorsRegistry;

@@ -1,6 +1,6 @@
-package org.paperhub.business.auth.service;
+package org.paperhub.auth.service;
 
-import org.paperhub.common.exception.BizException;
+import org.paperhub.exception.BizException;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.mail.SimpleMailMessage;
 import org.springframework.mail.javamail.JavaMailSender;

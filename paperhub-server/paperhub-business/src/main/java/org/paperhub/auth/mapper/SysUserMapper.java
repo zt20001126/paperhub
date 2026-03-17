@@ -1,7 +1,7 @@
-package org.paperhub.business.mapper;
+package org.paperhub.auth.mapper;
 
 import com.baomidou.mybatisplus.core.mapper.BaseMapper;
-import org.paperhub.entity.SysUser;
+import org.paperhub.auth.entity.SysUser;
 import org.springframework.stereotype.Repository;
 
 @Repository

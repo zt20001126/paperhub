@@ -1,4 +1,4 @@
-package org.paperhub.common.result;
+package org.paperhub.result;
 
 public class Result<T> {
     private boolean success;

@@ -1,4 +1,4 @@
-package org.paperhub.business;
+package org.paperhub;
 
 import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;

@@ -1,7 +1,7 @@
-package org.paperhub.business.config;
+package org.paperhub.config;
 
-import org.paperhub.common.exception.BizException;
-import org.paperhub.common.result.Result;
+import org.paperhub.exception.BizException;
+import org.paperhub.result.Result;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;

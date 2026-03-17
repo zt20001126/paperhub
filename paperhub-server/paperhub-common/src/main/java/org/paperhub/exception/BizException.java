@@ -1,4 +1,4 @@
-package org.paperhub.common.exception;
+package org.paperhub.exception;
 
 public class BizException extends RuntimeException {
     public BizException(String message) {
