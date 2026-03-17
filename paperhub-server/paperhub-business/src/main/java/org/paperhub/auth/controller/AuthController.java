@@ -1,17 +1,20 @@
 package org.paperhub.auth.controller;
 
-import org.paperhub.auth.service.AuthService;
-import org.paperhub.result.Result;
 import org.paperhub.auth.dto.LoginRequest;
 import org.paperhub.auth.dto.RegisterRequest;
 import org.paperhub.auth.dto.SendCodeRequest;
+import org.paperhub.auth.dto.UpdateUserInfoRequest;
+import org.paperhub.auth.service.AuthService;
 import org.paperhub.auth.vo.LoginUserVO;
-
-import javax.validation.Valid;
+import org.paperhub.result.Result;
 import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.RequestHeader;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
+
+import javax.validation.Valid;
 
 @RestController
 @RequestMapping("/api/auth")
@@ -37,5 +40,27 @@ public class AuthController {
     @PostMapping("/login")
     public Result<LoginUserVO> login(@Valid @RequestBody LoginRequest request) {
         return Result.ok(authService.login(request));
+    }
+
+    /**
+     * Update current user's profile.
+     */
+    @PutMapping("/update_user_info")
+    public Result<Void> updateUserInfo(
+            @RequestHeader(value = "Authorization", required = false) String authorization,
+            @Valid @RequestBody UpdateUserInfoRequest request) {
+        String token = extractToken(authorization);
+        authService.updateUserInfo(token, request);
+        return Result.ok(null);
+    }
+
+    private String extractToken(String authorization) {
+        if (authorization == null || authorization.isEmpty()) {
+            return "";
+        }
+        if (authorization.startsWith("Bearer ")) {
+            return authorization.substring(7).trim();
+        }
+        return authorization.trim();
     }
 }

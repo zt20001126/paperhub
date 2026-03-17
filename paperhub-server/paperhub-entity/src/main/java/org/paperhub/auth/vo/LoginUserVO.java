@@ -4,6 +4,7 @@ public class LoginUserVO {
     private Long id;
     private String email;
     private String nickname;
+    private String avatarUrl;
     private Integer points;
     private String token;
 
@@ -29,6 +30,14 @@ public class LoginUserVO {
 
     public void setNickname(String nickname) {
         this.nickname = nickname;
+    }
+
+    public String getAvatarUrl() {
+        return avatarUrl;
+    }
+
+    public void setAvatarUrl(String avatarUrl) {
+        this.avatarUrl = avatarUrl;
     }
 
     public Integer getPoints() {

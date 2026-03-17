@@ -6,6 +6,7 @@ const STORAGE_USER_KEY = 'paperhub_login_user'
 const showWelcome = ref(true)
 const authVisible = ref(false)
 const publishVisible = ref(false)
+const profileVisible = ref(false)
 const authMode = ref('login')
 const sendCodeCountdown = ref(0)
 const statusMessage = ref('')
@@ -29,6 +30,14 @@ const publishForm = reactive({
   journal: '',
   doi: '',
   rewardPoints: 10
+})
+
+const profileSubmitting = ref(false)
+const profileHint = ref('')
+const profileForm = reactive({
+  avatarUrl: '',
+  nickname: '',
+  email: ''
 })
 
 const loginForm = reactive({
@@ -92,12 +101,7 @@ function closeAuthModal() {
 
 function openPublishModal() {
   if (!currentUser.value?.id) {
-    statusMessage.value = '请先登录后再发布求助'
     openAuthModal()
-    return
-  }
-  if ((currentUser.value?.points ?? 0) <= 0) {
-    publishHint.value = '当前积分不足，无法发布求助'
     return
   }
   publishVisible.value = true
@@ -113,9 +117,24 @@ function closePublishModal() {
   publishHint.value = ''
 }
 
+function openProfileModal() {
+  if (!currentUser.value) return
+  profileVisible.value = true
+  profileHint.value = ''
+  profileForm.avatarUrl = currentUser.value.avatarUrl || ''
+  profileForm.nickname = currentUser.value.nickname || ''
+  profileForm.email = currentUser.value.email || ''
+}
+
+function closeProfileModal() {
+  profileVisible.value = false
+  profileHint.value = ''
+}
+
 function logout() {
   currentUser.value = null
   localStorage.removeItem(STORAGE_USER_KEY)
+  alert('已成功退出登录')
 }
 
 function isValidEmail(email) {
@@ -186,6 +205,65 @@ function goNextPage() {
   if (litPage.current < litPage.pages) fetchLitRequests(litPage.current + 1)
 }
 
+function handleAvatarSelect(event) {
+  const file = event.target.files?.[0]
+  if (!file) return
+
+  const ext = file.name.split('.').pop()?.toLowerCase()
+  if (!ext || !['jpg', 'jpeg', 'png'].includes(ext)) {
+    profileHint.value = '仅支持 jpg/png 格式图片'
+    return
+  }
+  if (file.size > 2 * 1024 * 1024) {
+    profileHint.value = '图片大小不能超过 2MB'
+    return
+  }
+
+  const reader = new FileReader()
+  reader.onload = () => {
+    profileForm.avatarUrl = String(reader.result || '')
+    profileHint.value = ''
+  }
+  reader.readAsDataURL(file)
+}
+
+async function saveProfile() {
+  profileHint.value = ''
+  const nickname = (profileForm.nickname || '').trim()
+  if (nickname.length < 2 || nickname.length > 20) {
+    profileHint.value = '昵称长度需在 2-20 个字符'
+    return
+  }
+
+  profileSubmitting.value = true
+  try {
+    const response = await fetch('/api/auth/update_user_info', {
+      method: 'PUT',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${currentUser.value?.token || ''}`
+      },
+      body: JSON.stringify({
+        avatarUrl: profileForm.avatarUrl,
+        nickname
+      })
+    })
+    await readApiData(response, '修改失败')
+
+    currentUser.value = {
+      ...currentUser.value,
+      avatarUrl: profileForm.avatarUrl,
+      nickname
+    }
+    localStorage.setItem(STORAGE_USER_KEY, JSON.stringify(currentUser.value))
+    closeProfileModal()
+  } catch (error) {
+    profileHint.value = error.message || '修改失败，请稍后重试'
+  } finally {
+    profileSubmitting.value = false
+  }
+}
+
 async function submitPublishForm() {
   publishHint.value = ''
   if (!publishForm.title.trim() || !publishForm.journal.trim() || !publishForm.doi.trim()) {
@@ -207,13 +285,6 @@ async function submitPublishForm() {
       })
     })
     await readApiData(response, '发布求助失败')
-    if (currentUser.value) {
-      currentUser.value.points = Math.max(
-        0,
-        (currentUser.value.points || 0) - Number(publishForm.rewardPoints || 0)
-      )
-      localStorage.setItem(STORAGE_USER_KEY, JSON.stringify(currentUser.value))
-    }
     closePublishModal()
     fetchLitRequests(1)
   } catch (error) {
@@ -311,9 +382,9 @@ async function handleLogin() {
       id: data.id,
       email: data.email,
       nickname: data.nickname,
+      avatarUrl: data.avatarUrl || '',
       points: data.points ?? 0,
-      token: data.token,
-      avatarUrl: data.avatarUrl || ''
+      token: data.token
     }
     currentUser.value = user
     localStorage.setItem(STORAGE_USER_KEY, JSON.stringify(user))
@@ -357,7 +428,8 @@ async function handleLogin() {
                 <span class="user-name">{{ displayName }}</span>
               </div>
               <div class="user-dropdown">
-                <button class="logout-btn" type="button" @click="logout">退出登录</button>
+                <button class="menu-action-btn" type="button" @click="openProfileModal">修改信息</button>
+                <button class="menu-action-btn" type="button" @click="logout">退出登录</button>
               </div>
             </div>
             <button v-else class="auth-btn" @click="openAuthModal">登录</button>
@@ -459,26 +531,49 @@ async function handleLogin() {
           <form class="auth-form" @submit.prevent="submitPublishForm">
             <label>论文标题</label>
             <input v-model.trim="publishForm.title" type="text" placeholder="请输入论文标题" />
-
             <label>发表期刊</label>
             <input v-model.trim="publishForm.journal" type="text" placeholder="请输入发表期刊" />
-
             <label>DOI 号</label>
             <input v-model.trim="publishForm.doi" type="text" placeholder="请输入 DOI 号" />
-
             <label>奖励积分</label>
             <input v-model.number="publishForm.rewardPoints" type="number" min="0" placeholder="请输入奖励积分" />
-
             <div class="publish-actions">
-              <button class="ghost-btn" type="button" :disabled="publishSubmitting" @click="closePublishModal">
-                取消
-              </button>
+              <button class="ghost-btn" type="button" :disabled="publishSubmitting" @click="closePublishModal">取消</button>
               <button class="primary-btn" type="submit" :disabled="publishSubmitting">
                 {{ publishSubmitting ? '发布中...' : '发布求助' }}
               </button>
             </div>
-
             <p v-if="publishHint" class="status">{{ publishHint }}</p>
+          </form>
+        </section>
+      </div>
+    </transition>
+
+    <transition name="fade">
+      <div v-if="profileVisible" class="modal-mask" @click.self="closeProfileModal">
+        <section class="auth-modal publish-modal">
+          <h3 class="auth-title">修改信息</h3>
+          <form class="auth-form" @submit.prevent="saveProfile">
+            <label>头像</label>
+            <div class="profile-avatar-row">
+              <img v-if="profileForm.avatarUrl" class="profile-avatar" :src="profileForm.avatarUrl" alt="avatar" />
+              <div v-else class="profile-avatar profile-avatar-fallback">{{ avatarText }}</div>
+              <input type="file" accept=".jpg,.jpeg,.png" @change="handleAvatarSelect" />
+            </div>
+            <label>头像地址（可选）</label>
+            <input v-model.trim="profileForm.avatarUrl" type="text" placeholder="请输入头像 URL 或通过上方上传" />
+            <label>昵称</label>
+            <input v-model.trim="profileForm.nickname" type="text" maxlength="20" placeholder="2-20 个字符" />
+            <label>邮箱（只读）</label>
+            <input :value="profileForm.email" type="email" readonly disabled />
+
+            <div class="publish-actions">
+              <button class="ghost-btn" type="button" :disabled="profileSubmitting" @click="closeProfileModal">取消</button>
+              <button class="primary-btn" type="submit" :disabled="profileSubmitting">
+                {{ profileSubmitting ? '保存中...' : '保存修改' }}
+              </button>
+            </div>
+            <p v-if="profileHint" class="status">{{ profileHint }}</p>
           </form>
         </section>
       </div>
