@@ -1,4 +1,4 @@
-package org.paperhub.business.auth.dto;
+package org.paperhub.entity.auth.dto;
 
 import javax.validation.constraints.Email;
 import javax.validation.constraints.NotBlank;

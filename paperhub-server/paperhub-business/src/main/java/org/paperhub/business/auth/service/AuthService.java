@@ -1,12 +1,12 @@
 package org.paperhub.business.auth.service;
 
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
-import org.paperhub.business.auth.dto.LoginRequest;
-import org.paperhub.business.auth.dto.RegisterRequest;
-import org.paperhub.business.auth.vo.LoginUserVO;
 import org.paperhub.business.mapper.SysUserMapper;
 import org.paperhub.common.exception.BizException;
 import org.paperhub.entity.SysUser;
+import org.paperhub.entity.auth.dto.LoginRequest;
+import org.paperhub.entity.auth.dto.RegisterRequest;
+import org.paperhub.entity.auth.vo.LoginUserVO;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 

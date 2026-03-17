@@ -1,11 +1,12 @@
 package org.paperhub.business.auth.controller;
 
-import org.paperhub.business.auth.dto.LoginRequest;
-import org.paperhub.business.auth.dto.RegisterRequest;
-import org.paperhub.business.auth.dto.SendCodeRequest;
 import org.paperhub.business.auth.service.AuthService;
-import org.paperhub.business.auth.vo.LoginUserVO;
 import org.paperhub.common.result.Result;
+import org.paperhub.entity.auth.dto.LoginRequest;
+import org.paperhub.entity.auth.dto.RegisterRequest;
+import org.paperhub.entity.auth.dto.SendCodeRequest;
+import org.paperhub.entity.auth.vo.LoginUserVO;
+
 import javax.validation.Valid;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;

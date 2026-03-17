@@ -1,4 +1,4 @@
-package org.paperhub.business.auth.vo;
+package org.paperhub.entity.auth.vo;
 
 public class LoginUserVO {
     private Long id;
