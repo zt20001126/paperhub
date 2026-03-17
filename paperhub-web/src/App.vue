@@ -11,6 +11,16 @@ const statusMessage = ref('')
 const loading = ref(false)
 const currentUser = ref(null)
 
+const litLoading = ref(false)
+const litError = ref('')
+const litPage = reactive({
+  current: 1,
+  size: 5,
+  total: 0,
+  pages: 0,
+  records: []
+})
+
 const loginForm = reactive({
   email: '',
   password: ''
@@ -45,6 +55,8 @@ onMounted(() => {
       localStorage.removeItem(STORAGE_USER_KEY)
     }
   }
+
+  fetchLitRequests(1)
 })
 
 onBeforeUnmount(() => {
@@ -89,6 +101,17 @@ function startCodeCountdown(seconds = 60) {
   }, 1000)
 }
 
+function formatDate(value) {
+  if (!value) return '--'
+  return String(value).replace('T', ' ').slice(0, 19)
+}
+
+function statusText(status) {
+  if (status === 0) return '待处理'
+  if (status === 1) return '已完成'
+  return '未知'
+}
+
 async function readApiData(response, defaultErrorMessage) {
   let body = null
   try {
@@ -100,6 +123,37 @@ async function readApiData(response, defaultErrorMessage) {
     throw new Error(body?.message || defaultErrorMessage)
   }
   return body.data
+}
+
+async function fetchLitRequests(page = 1) {
+  litLoading.value = true
+  litError.value = ''
+  try {
+    const response = await fetch(`/api/lit-request/page?current=${page}&size=${litPage.size}`)
+    const data = await readApiData(response, '文献数据加载失败')
+    litPage.current = data.current || page
+    litPage.size = data.size || litPage.size
+    litPage.total = data.total || 0
+    litPage.pages = data.pages || 0
+    litPage.records = data.records || []
+  } catch (error) {
+    litError.value = error.message || '文献数据加载失败'
+    litPage.records = []
+  } finally {
+    litLoading.value = false
+  }
+}
+
+function goPrevPage() {
+  if (litPage.current > 1) {
+    fetchLitRequests(litPage.current - 1)
+  }
+}
+
+function goNextPage() {
+  if (litPage.current < litPage.pages) {
+    fetchLitRequests(litPage.current + 1)
+  }
 }
 
 async function sendCode() {
@@ -228,12 +282,7 @@ async function handleLogin() {
 
           <div v-if="currentUser" class="user-menu-wrap">
             <div class="user-trigger">
-              <img
-                v-if="currentUser.avatarUrl"
-                class="user-avatar"
-                :src="currentUser.avatarUrl"
-                alt="avatar"
-              />
+              <img v-if="currentUser.avatarUrl" class="user-avatar" :src="currentUser.avatarUrl" alt="avatar" />
               <div v-else class="user-avatar user-avatar-fallback">{{ avatarText }}</div>
               <span class="user-name">{{ displayName }}</span>
             </div>
@@ -245,8 +294,42 @@ async function handleLogin() {
         </header>
 
         <main class="main-content">
-          <h2>文献互助</h2>
-          <p>在这里发起求助、共享论文、建立学术连接。</p>
+          <section class="lit-panel">
+            <div class="lit-panel-header">
+              <h2>文献互助</h2>
+              <span>共 {{ litPage.total }} 条</span>
+            </div>
+
+            <div v-if="litLoading" class="lit-empty">正在加载文献...</div>
+            <div v-else-if="litError" class="lit-empty">{{ litError }}</div>
+            <div v-else-if="litPage.records.length === 0" class="lit-empty">暂无文献互助记录</div>
+            <div v-else class="lit-list">
+              <article v-for="item in litPage.records" :key="item.id" class="lit-card">
+                <h3 class="lit-title">{{ item.title }}</h3>
+                <p class="lit-meta">期刊：{{ item.journal || '--' }}</p>
+                <p class="lit-meta">DOI：{{ item.doi || '--' }}</p>
+                <div class="lit-footer">
+                  <span>悬赏积分：{{ item.rewardPoints ?? 0 }}</span>
+                  <span>状态：{{ statusText(item.status) }}</span>
+                  <span>发布时间：{{ formatDate(item.createTime) }}</span>
+                </div>
+              </article>
+            </div>
+
+            <div class="pager">
+              <button class="pager-btn" :disabled="litPage.current <= 1 || litLoading" @click="goPrevPage">
+                上一页
+              </button>
+              <span class="pager-text">第 {{ litPage.current }} / {{ litPage.pages || 1 }} 页</span>
+              <button
+                class="pager-btn"
+                :disabled="litPage.current >= litPage.pages || litLoading || litPage.pages === 0"
+                @click="goNextPage"
+              >
+                下一页
+              </button>
+            </div>
+          </section>
         </main>
       </section>
     </transition>
@@ -276,12 +359,7 @@ async function handleLogin() {
             <label>邮箱验证码</label>
             <div class="code-row">
               <input v-model.trim="registerForm.code" type="text" placeholder="请输入验证码" />
-              <button
-                class="line-btn"
-                type="button"
-                :disabled="loading || sendCodeCountdown > 0"
-                @click="sendCode"
-              >
+              <button class="line-btn" type="button" :disabled="loading || sendCodeCountdown > 0" @click="sendCode">
                 {{ codeButtonText }}
               </button>
             </div>
