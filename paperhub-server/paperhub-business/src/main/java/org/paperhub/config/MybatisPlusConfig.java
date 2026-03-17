@@ -8,7 +8,12 @@ import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 
 @Configuration
-@MapperScan({"org.paperhub.auth.mapper", "org.paperhub.literature.mapper"})
+@MapperScan({
+        "org.paperhub.auth.mapper",
+        "org.paperhub.literature.mapper",
+        "org.paperhub.topic.mapper",
+        "org.paperhub.group.mapper"
+})
 public class MybatisPlusConfig {
     @Bean
     public MybatisPlusInterceptor mybatisPlusInterceptor() {

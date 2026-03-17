@@ -124,7 +124,8 @@ body {
 .publish-btn,
 .ghost-btn,
 .pager-btn,
-.menu-action-btn {
+.menu-action-btn,
+.menu-item {
   border: none;
   cursor: pointer;
   font-family: inherit;
@@ -174,6 +175,8 @@ body {
 }
 
 .brand {
+  border: 1px solid var(--line-strong);
+  cursor: pointer;
   font-size: 22px;
   letter-spacing: 0.04em;
   font-weight: 800;
@@ -184,7 +187,6 @@ body {
   min-height: var(--nav-item-height);
   padding: 0 16px;
   border-radius: 12px;
-  border: 1px solid var(--line-strong);
   background: rgba(28, 92, 214, 0.28);
 }
 
@@ -647,6 +649,79 @@ body {
   background: rgba(17, 61, 147, 0.2);
 }
 
+.hot-topic-panel {
+  display: grid;
+  gap: 14px;
+}
+
+.hot-topic-card {
+  display: grid;
+  gap: 12px;
+}
+
+.hot-topic-clickable {
+  cursor: pointer;
+}
+
+.hot-topic-cover {
+  width: 100%;
+  max-height: 260px;
+  object-fit: cover;
+  border-radius: 12px;
+  border: 1px solid rgba(175, 211, 255, 0.28);
+}
+
+.hot-topic-content {
+  margin: 0;
+  color: #e4efff;
+  line-height: 1.7;
+  white-space: pre-wrap;
+}
+
+.community-panel {
+  display: grid;
+  gap: 14px;
+}
+
+.community-card {
+  display: grid;
+  gap: 10px;
+}
+
+.community-action-row {
+  margin-top: 6px;
+}
+
+.community-user-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.community-user-avatar {
+  width: 44px;
+  height: 44px;
+  border-radius: 50%;
+  object-fit: cover;
+  border: 1px solid rgba(205, 227, 255, 0.45);
+}
+
+.community-user-meta {
+  display: grid;
+  gap: 3px;
+}
+
+.community-user-name {
+  font-size: 14px;
+  color: #e9f3ff;
+  font-weight: 700;
+}
+
+.community-publish-time {
+  font-size: 12px;
+  color: #aecaee;
+}
+
 .pager {
   margin-top: 16px;
   display: flex;
@@ -711,6 +786,7 @@ body {
 }
 
 .auth-form input,
+.auth-form textarea,
 .form-select {
   height: 42px;
   border-radius: 11px;
@@ -721,7 +797,14 @@ body {
   outline: none;
 }
 
+.auth-form textarea {
+  min-height: 130px;
+  padding: 10px 12px;
+  resize: vertical;
+}
+
 .auth-form input:focus,
+.auth-form textarea:focus,
 .form-select:focus {
   border-color: rgba(131, 186, 255, 0.92);
   box-shadow: 0 0 0 3px rgba(86, 157, 255, 0.22);

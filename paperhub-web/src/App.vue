@@ -16,6 +16,7 @@ const currentUser = ref(null)
 
 const litLoading = ref(false)
 const litError = ref('')
+const navMode = ref('literature')
 const viewMode = ref('list')
 const selectedLit = ref(null)
 const litPage = reactive({
@@ -24,6 +25,19 @@ const litPage = reactive({
   total: 0,
   pages: 0,
   records: []
+})
+const hotTopicLoading = ref(false)
+const hotTopicError = ref('')
+const hotTopicList = ref([])
+const communityPublishVisible = ref(false)
+const communityPublishSubmitting = ref(false)
+const communityPublishHint = ref('')
+const communityPostsLoading = ref(false)
+const communityPostsError = ref('')
+const communityPosts = ref([])
+const communityPublishForm = reactive({
+  title: '',
+  content: ''
 })
 
 const publishSubmitting = ref(false)
@@ -96,6 +110,10 @@ onBeforeUnmount(() => {
 function enterMain() {
   showWelcome.value = false
   if (welcomeTimer) clearTimeout(welcomeTimer)
+}
+
+function backToWelcome() {
+  showWelcome.value = true
 }
 
 function openAuthModal() {
@@ -237,6 +255,117 @@ async function fetchLitRequests(page = 1) {
     litPage.records = []
   } finally {
     litLoading.value = false
+  }
+}
+
+async function fetchHotTopicList() {
+  hotTopicLoading.value = true
+  hotTopicError.value = ''
+  try {
+    const response = await fetch('/api/hot_topic_page')
+    hotTopicList.value = (await readApiData(response, '热点数据加载失败')) || []
+  } catch (error) {
+    hotTopicError.value = error.message || '热点数据加载失败'
+    hotTopicList.value = []
+  } finally {
+    hotTopicLoading.value = false
+  }
+}
+
+async function handleHotTopicClick(item) {
+  if (!item?.id) return
+  try {
+    const response = await fetch(`/api/hot_topic_view?id=${item.id}`, { method: 'POST' })
+    await readApiData(response, '热点浏览量更新失败')
+    await fetchHotTopicList()
+  } catch (error) {
+    hotTopicError.value = error.message || '热点浏览量更新失败'
+  }
+}
+
+function openLiteratureModule() {
+  navMode.value = 'literature'
+  viewMode.value = 'list'
+}
+
+function openHotTopicModule() {
+  navMode.value = 'hotTopic'
+  fetchHotTopicList()
+}
+
+function openCommunityModule() {
+  navMode.value = 'community'
+  viewMode.value = 'list'
+  fetchCommunityPosts()
+}
+
+function communityAvatarText(item) {
+  const name = item?.userNickname || 'U'
+  return String(name).trim().slice(0, 1).toUpperCase()
+}
+
+async function fetchCommunityPosts() {
+  communityPostsLoading.value = true
+  communityPostsError.value = ''
+  try {
+    const response = await fetch('/api/group/post/list')
+    communityPosts.value = (await readApiData(response, '社区帖子加载失败')) || []
+  } catch (error) {
+    communityPostsError.value = error.message || '社区帖子加载失败'
+    communityPosts.value = []
+  } finally {
+    communityPostsLoading.value = false
+  }
+}
+
+function openCommunityPublishModal() {
+  if (!currentUser.value?.id) {
+    openAuthModal()
+    return
+  }
+  communityPublishVisible.value = true
+  communityPublishHint.value = ''
+  communityPublishForm.title = ''
+  communityPublishForm.content = ''
+}
+
+function closeCommunityPublishModal() {
+  communityPublishVisible.value = false
+  communityPublishHint.value = ''
+}
+
+async function submitCommunityPost() {
+  communityPublishHint.value = ''
+  const title = (communityPublishForm.title || '').trim()
+  const content = (communityPublishForm.content || '').trim()
+  if (!title) {
+    communityPublishHint.value = '帖子标题不能为空'
+    return
+  }
+  if (!content) {
+    communityPublishHint.value = '帖子内容不能为空'
+    return
+  }
+
+  communityPublishSubmitting.value = true
+  try {
+    const response = await fetch('/api/group/post/publish', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        userId: currentUser.value.id,
+        title,
+        content
+      })
+    })
+
+    await readApiData(response, '发帖失败')
+    closeCommunityPublishModal()
+    fetchCommunityPosts()
+  } catch (error) {
+    communityPublishHint.value = error.message || '发帖失败，请稍后重试'
+  } finally {
+    communityPublishSubmitting.value = false
   }
 }
 
@@ -535,11 +664,32 @@ async function handleLogin() {
     <transition name="rise">
       <section v-if="!showWelcome" class="main-page">
         <header class="top-nav">
-          <div class="brand">PaperHub</div>
+          <button class="brand" type="button" @click="backToWelcome">PaperHub</button>
           <nav class="menu">
-            <a class="menu-item active" href="javascript:void(0)">文献互助</a>
-            <a class="menu-item" href="javascript:void(0)">当日热点</a>
-            <a class="menu-item" href="javascript:void(0)">交流社区</a>
+            <button
+              class="menu-item"
+              :class="{ active: navMode === 'literature' }"
+              type="button"
+              @click="openLiteratureModule"
+            >
+              文献互助
+            </button>
+            <button
+              class="menu-item"
+              :class="{ active: navMode === 'hotTopic' }"
+              type="button"
+              @click="openHotTopicModule"
+            >
+              当日热点
+            </button>
+            <button
+              class="menu-item"
+              :class="{ active: navMode === 'community' }"
+              type="button"
+              @click="openCommunityModule"
+            >
+              交流社区
+            </button>
           </nav>
 
           <div class="top-actions">
@@ -560,7 +710,7 @@ async function handleLogin() {
         </header>
 
         <main class="main-content">
-          <section v-if="viewMode === 'list'" class="lit-panel">
+          <section v-if="navMode === 'literature' && viewMode === 'list'" class="lit-panel">
             <div class="lit-panel-header">
               <h2>文献互助</h2>
               <span>共 {{ litPage.total }} 条</span>
@@ -602,7 +752,69 @@ async function handleLogin() {
             </div>
           </section>
 
-          <section v-else class="lit-panel detail-panel">
+          <section v-else-if="navMode === 'hotTopic'" class="lit-panel hot-topic-panel">
+            <div class="lit-panel-header">
+              <h2>当日热点</h2>
+            </div>
+
+            <div v-if="hotTopicLoading" class="lit-empty">正在加载热点信息...</div>
+            <div v-else-if="hotTopicError" class="lit-empty">{{ hotTopicError }}</div>
+            <div v-else-if="hotTopicList.length > 0" class="lit-list">
+              <article
+                v-for="(item, index) in hotTopicList"
+                :key="item.id || `${item.publishTime}-${index}`"
+                class="lit-card hot-topic-card hot-topic-clickable"
+                @click="handleHotTopicClick(item)"
+              >
+                <h3 class="lit-title">{{ item.title || '--' }}</h3>
+                <img v-if="item.coverUrl" class="hot-topic-cover" :src="item.coverUrl" alt="cover" />
+                <p class="hot-topic-content">{{ item.content || '--' }}</p>
+                <div class="lit-footer">
+                  <span>浏览量：{{ item.viewCount ?? 0 }}</span>
+                  <span>发布时间：{{ formatDate(item.publishTime) }}</span>
+                  <span>更新时间：{{ formatDate(item.updateTime) }}</span>
+                </div>
+              </article>
+            </div>
+            <div v-else class="lit-empty">暂无热点数据</div>
+          </section>
+
+          <section v-else-if="navMode === 'community'" class="lit-panel community-panel">
+            <div class="lit-panel-header">
+              <h2>交流社区</h2>
+            </div>
+            <article class="lit-card community-card">
+              <h3 class="lit-title">社区发帖</h3>
+              <p class="lit-meta">点击下方按钮进入发帖页面，填写标题和内容后即可发布。</p>
+              <div class="community-action-row">
+                <button class="primary-btn" type="button" @click="openCommunityPublishModal">发布帖子</button>
+              </div>
+            </article>
+            <div v-if="communityPostsLoading" class="lit-empty">正在加载社区帖子...</div>
+            <div v-else-if="communityPostsError" class="lit-empty">{{ communityPostsError }}</div>
+            <div v-else-if="communityPosts.length === 0" class="lit-empty">暂无社区帖子</div>
+            <div v-else class="lit-list">
+              <article v-for="item in communityPosts" :key="item.id" class="lit-card community-card">
+                <div class="community-user-row">
+                  <img v-if="item.userAvatarUrl" class="community-user-avatar" :src="item.userAvatarUrl" alt="avatar" />
+                  <div v-else class="community-user-avatar user-avatar-fallback">{{ communityAvatarText(item) }}</div>
+                  <div class="community-user-meta">
+                    <span class="community-user-name">{{ item.userNickname || '--' }}</span>
+                    <span class="community-publish-time">{{ formatDate(item.publishTime) }}</span>
+                  </div>
+                </div>
+                <h3 class="lit-title">{{ item.title || '--' }}</h3>
+                <p class="hot-topic-content">{{ item.content || '--' }}</p>
+                <div class="lit-footer">
+                  <span>点赞量：{{ item.likeCount ?? 0 }}</span>
+                  <span>浏览量：{{ item.viewCount ?? 0 }}</span>
+                  <span>发布时间：{{ formatDate(item.publishTime) }}</span>
+                </div>
+              </article>
+            </div>
+          </section>
+
+          <section v-else-if="navMode === 'literature'" class="lit-panel detail-panel">
             <div class="detail-top">
               <button class="ghost-btn" type="button" @click="backToList">返回文献互助</button>
               <h2>文献详情</h2>
@@ -746,6 +958,34 @@ async function handleLogin() {
               </button>
             </div>
             <p v-if="publishHint" class="status">{{ publishHint }}</p>
+          </form>
+        </section>
+      </div>
+    </transition>
+
+    <transition name="fade">
+      <div v-if="communityPublishVisible" class="modal-mask" @click.self="closeCommunityPublishModal">
+        <section class="auth-modal publish-modal">
+          <h3 class="auth-title">发布帖子</h3>
+          <form class="auth-form" @submit.prevent="submitCommunityPost">
+            <label>帖子标题</label>
+            <input v-model.trim="communityPublishForm.title" type="text" maxlength="200" placeholder="请输入帖子标题" />
+            <label>帖子内容</label>
+            <textarea
+              v-model.trim="communityPublishForm.content"
+              rows="6"
+              maxlength="5000"
+              placeholder="请输入帖子内容"
+            ></textarea>
+            <div class="publish-actions">
+              <button class="ghost-btn" type="button" :disabled="communityPublishSubmitting" @click="closeCommunityPublishModal">
+                取消
+              </button>
+              <button class="primary-btn" type="submit" :disabled="communityPublishSubmitting">
+                {{ communityPublishSubmitting ? '发布中...' : '发布' }}
+              </button>
+            </div>
+            <p v-if="communityPublishHint" class="status">{{ communityPublishHint }}</p>
           </form>
         </section>
       </div>
