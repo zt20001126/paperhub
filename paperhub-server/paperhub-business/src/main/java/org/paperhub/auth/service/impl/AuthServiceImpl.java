@@ -3,11 +3,14 @@ package org.paperhub.auth.service.impl;
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import org.paperhub.auth.dto.LoginRequest;
 import org.paperhub.auth.dto.RegisterRequest;
+import org.paperhub.auth.dto.SendCodeRequest;
 import org.paperhub.auth.dto.UpdateUserInfoRequest;
 import org.paperhub.auth.entity.SysUser;
 import org.paperhub.auth.mapper.AuthMapper;
 import org.paperhub.auth.service.AuthService;
+import org.paperhub.auth.service.CaptchaService;
 import org.paperhub.auth.service.EmailCodeService;
+import org.paperhub.auth.vo.CaptchaVO;
 import org.paperhub.auth.vo.LoginUserVO;
 import org.paperhub.exception.BizException;
 import org.springframework.security.crypto.password.PasswordEncoder;
@@ -16,34 +19,45 @@ import org.springframework.util.StringUtils;
 
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.regex.Pattern;
 
 @Service
 public class AuthServiceImpl implements AuthService {
     private static final ConcurrentHashMap<String, Long> TOKEN_USER_MAP = new ConcurrentHashMap<>();
+    private static final Pattern PASSWORD_PATTERN = Pattern.compile("^(?=.*[A-Za-z])(?=.*\\d).{8,50}$");
 
     private final AuthMapper authMapper;
     private final PasswordEncoder passwordEncoder;
     private final EmailCodeService emailCodeService;
+    private final CaptchaService captchaService;
 
     public AuthServiceImpl(
             AuthMapper authMapper,
             PasswordEncoder passwordEncoder,
-            EmailCodeService emailCodeService) {
+            EmailCodeService emailCodeService,
+            CaptchaService captchaService) {
         this.authMapper = authMapper;
         this.passwordEncoder = passwordEncoder;
         this.emailCodeService = emailCodeService;
+        this.captchaService = captchaService;
+    }
+
+    @Override
+    public CaptchaVO captcha() {
+        return captchaService.createCaptcha();
     }
 
     /**
-     * Send register verification code to email.
+     * Send register verification code to email after image captcha verification.
      */
     @Override
-    public void sendRegisterCode(String email) {
-        SysUser user = findByEmail(email);
+    public void sendRegisterCode(SendCodeRequest request) {
+        captchaService.verify(request.getCaptchaId(), request.getCaptchaCode(), false);
+        SysUser user = findByEmail(request.getEmail());
         if (user != null) {
             throw new BizException("该邮箱已注册");
         }
-        emailCodeService.sendCode(email);
+        emailCodeService.sendCode(request.getEmail());
     }
 
     /**
@@ -51,11 +65,14 @@ public class AuthServiceImpl implements AuthService {
      */
     @Override
     public void register(RegisterRequest request) {
+        captchaService.verify(request.getCaptchaId(), request.getCaptchaCode(), true);
+        validateRegisterPassword(request);
+
         SysUser existing = findByEmail(request.getEmail());
         if (existing != null) {
             throw new BizException("该邮箱已注册");
         }
-        emailCodeService.verifyCode(request.getEmail(), request.getCode());
+        emailCodeService.verifyCode(request.getEmail(), request.getEmailCode());
 
         SysUser newUser = new SysUser();
         newUser.setEmail(request.getEmail());
@@ -114,7 +131,7 @@ public class AuthServiceImpl implements AuthService {
         if (StringUtils.hasText(request.getNickname())) {
             String nickname = request.getNickname().trim();
             if (nickname.length() < 2 || nickname.length() > 20) {
-                throw new BizException("昵称长度需在2-20个字符");
+                throw new BizException("昵称长度需在2-20个字符之间");
             }
             user.setNickname(nickname);
             hasUpdate = true;
@@ -129,6 +146,17 @@ public class AuthServiceImpl implements AuthService {
         }
 
         authMapper.updateById(user);
+    }
+
+    private void validateRegisterPassword(RegisterRequest request) {
+        String password = request.getPassword();
+        String confirmPassword = request.getConfirmPassword();
+        if (!password.equals(confirmPassword)) {
+            throw new BizException("两次输入的密码不一致");
+        }
+        if (!PASSWORD_PATTERN.matcher(password).matches()) {
+            throw new BizException("密码长度需至少8位，并且必须同时包含字母和数字");
+        }
     }
 
     private boolean verifyPassword(SysUser user, String rawPassword) {

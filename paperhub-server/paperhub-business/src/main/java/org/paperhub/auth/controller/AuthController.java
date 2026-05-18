@@ -5,8 +5,10 @@ import org.paperhub.auth.dto.RegisterRequest;
 import org.paperhub.auth.dto.SendCodeRequest;
 import org.paperhub.auth.dto.UpdateUserInfoRequest;
 import org.paperhub.auth.service.AuthService;
+import org.paperhub.auth.vo.CaptchaVO;
 import org.paperhub.auth.vo.LoginUserVO;
 import org.paperhub.result.Result;
+import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
@@ -25,9 +27,14 @@ public class AuthController {
         this.authService = authService;
     }
 
+    @GetMapping("/captcha")
+    public Result<CaptchaVO> captcha() {
+        return Result.ok(authService.captcha());
+    }
+
     @PostMapping("/send-code")
     public Result<Void> sendCode(@Valid @RequestBody SendCodeRequest request) {
-        authService.sendRegisterCode(request.getEmail());
+        authService.sendRegisterCode(request);
         return Result.ok(null);
     }
 

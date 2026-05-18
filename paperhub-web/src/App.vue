@@ -13,6 +13,8 @@ const sendCodeCountdown = ref(0)
 const statusMessage = ref('')
 const loading = ref(false)
 const currentUser = ref(null)
+const captchaImage = ref('')
+const captchaLoading = ref(false)
 
 const litLoading = ref(false)
 const litError = ref('')
@@ -69,9 +71,11 @@ const loginForm = reactive({
 
 const registerForm = reactive({
   email: '',
-  code: '',
+  emailCode: '',
   password: '',
-  confirmPassword: ''
+  confirmPassword: '',
+  captchaId: '',
+  captchaCode: ''
 })
 
 let welcomeTimer = null
@@ -100,6 +104,7 @@ onMounted(() => {
   }
 
   fetchLitRequests(1)
+  loadCaptcha()
 })
 
 onBeforeUnmount(() => {
@@ -120,6 +125,7 @@ function openAuthModal() {
   authVisible.value = true
   authMode.value = 'login'
   statusMessage.value = ''
+  loadCaptcha()
 }
 
 function closeAuthModal() {
@@ -179,6 +185,23 @@ function startCodeCountdown(seconds = 60) {
       codeTimer = null
     }
   }, 1000)
+}
+
+async function loadCaptcha() {
+  captchaLoading.value = true
+  try {
+    const response = await fetch('/api/auth/captcha')
+    const data = await readApiData(response, '图片验证码加载失败')
+    registerForm.captchaId = data?.captchaId || ''
+    registerForm.captchaCode = ''
+    captchaImage.value = data?.imageBase64 || ''
+  } catch (error) {
+    statusMessage.value = error.message || '图片验证码加载失败'
+    registerForm.captchaId = ''
+    captchaImage.value = ''
+  } finally {
+    captchaLoading.value = false
+  }
 }
 
 function formatDate(value) {
@@ -547,6 +570,10 @@ async function sendCode() {
     statusMessage.value = '请输入有效的邮箱地址'
     return
   }
+  if (!registerForm.captchaId || !registerForm.captchaCode.trim()) {
+    statusMessage.value = '请输入图片验证码'
+    return
+  }
   if (sendCodeCountdown.value > 0) return
 
   loading.value = true
@@ -554,7 +581,11 @@ async function sendCode() {
     const response = await fetch('/api/auth/send-code', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ email: registerForm.email })
+      body: JSON.stringify({
+        email: registerForm.email,
+        captchaId: registerForm.captchaId,
+        captchaCode: registerForm.captchaCode
+      })
     })
 
     await readApiData(response, '验证码发送失败')
@@ -562,6 +593,7 @@ async function sendCode() {
     statusMessage.value = '验证码已发送，请查收邮箱'
   } catch (error) {
     statusMessage.value = error.message || '验证码发送失败，请稍后重试'
+    loadCaptcha()
   } finally {
     loading.value = false
   }
@@ -573,12 +605,16 @@ async function handleRegister() {
     statusMessage.value = '请输入有效的邮箱地址'
     return
   }
-  if (!registerForm.code.trim()) {
+  if (!registerForm.emailCode.trim()) {
     statusMessage.value = '请输入邮箱验证码'
     return
   }
-  if (registerForm.password.length < 6) {
-    statusMessage.value = '密码至少 6 位'
+  if (!registerForm.captchaId || !registerForm.captchaCode.trim()) {
+    statusMessage.value = '请输入图片验证码'
+    return
+  }
+  if (!/^(?=.*[A-Za-z])(?=.*\d).{8,50}$/.test(registerForm.password)) {
+    statusMessage.value = '密码至少8位，且必须同时包含字母和数字'
     return
   }
   if (registerForm.password !== registerForm.confirmPassword) {
@@ -593,8 +629,11 @@ async function handleRegister() {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
         email: registerForm.email,
-        code: registerForm.code,
-        password: registerForm.password
+        emailCode: registerForm.emailCode,
+        password: registerForm.password,
+        confirmPassword: registerForm.confirmPassword,
+        captchaId: registerForm.captchaId,
+        captchaCode: registerForm.captchaCode
       })
     })
 
@@ -603,6 +642,7 @@ async function handleRegister() {
     authMode.value = 'login'
   } catch (error) {
     statusMessage.value = error.message || '注册失败，请稍后重试'
+    loadCaptcha()
   } finally {
     loading.value = false
   }
@@ -892,9 +932,12 @@ async function handleLogin() {
     </transition>
 
     <transition name="fade">
-      <div v-if="authVisible" class="modal-mask" @click.self="closeAuthModal">
+      <div v-if="authVisible" class="modal-mask">
         <section class="auth-modal">
-          <h3 class="auth-title">{{ authMode === 'login' ? '登录 PaperHub' : '注册 PaperHub' }}</h3>
+          <div class="auth-modal-head">
+            <h3 class="auth-title">{{ authMode === 'login' ? '登录 PaperHub' : '注册 PaperHub' }}</h3>
+            <button class="modal-close-btn" type="button" aria-label="关闭登录注册窗口" @click="closeAuthModal">×</button>
+          </div>
 
           <form v-if="authMode === 'login'" class="auth-form" @submit.prevent="handleLogin">
             <label>邮箱</label>
@@ -913,15 +956,23 @@ async function handleLogin() {
           <form v-else class="auth-form" @submit.prevent="handleRegister">
             <label>邮箱</label>
             <input v-model.trim="registerForm.email" type="email" placeholder="you@example.com" />
+            <label>图片验证码</label>
+            <div class="code-row">
+              <input v-model.trim="registerForm.captchaCode" type="text" maxlength="4" placeholder="请输入图片验证码" />
+              <button class="line-btn captcha-btn" type="button" :disabled="captchaLoading" @click="loadCaptcha">
+                <img v-if="captchaImage" class="captcha-img" :src="captchaImage" alt="captcha" />
+                <span v-else>{{ captchaLoading ? '加载中...' : '刷新' }}</span>
+              </button>
+            </div>
             <label>邮箱验证码</label>
             <div class="code-row">
-              <input v-model.trim="registerForm.code" type="text" placeholder="请输入验证码" />
+              <input v-model.trim="registerForm.emailCode" type="text" placeholder="请输入验证码" />
               <button class="line-btn" type="button" :disabled="loading || sendCodeCountdown > 0" @click="sendCode">
                 {{ codeButtonText }}
               </button>
             </div>
             <label>密码</label>
-            <input v-model="registerForm.password" type="password" placeholder="至少 6 位" />
+            <input v-model="registerForm.password" type="password" placeholder="至少8位，包含字母和数字" />
             <label>确认密码</label>
             <input v-model="registerForm.confirmPassword" type="password" placeholder="再次输入密码" />
             <button class="primary-btn full" type="submit" :disabled="loading">
