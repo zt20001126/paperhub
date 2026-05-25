@@ -21,10 +21,8 @@ public class RegisterRequest {
     @NotBlank(message = "确认密码不能为空")
     private String confirmPassword;
 
-    @NotBlank(message = "图片验证码ID不能为空")
     private String captchaId;
 
-    @NotBlank(message = "图片验证码不能为空")
     private String captchaCode;
 
     public String getEmail() {

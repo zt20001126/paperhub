@@ -66,7 +66,9 @@ const helpSubmitting = ref(false)
 
 const loginForm = reactive({
   email: '',
-  password: ''
+  password: '',
+  captchaId: '',
+  captchaCode: ''
 })
 
 const registerForm = reactive({
@@ -123,14 +125,19 @@ function backToWelcome() {
 
 function openAuthModal() {
   authVisible.value = true
-  authMode.value = 'login'
+  switchAuthMode('login')
   statusMessage.value = ''
-  loadCaptcha()
 }
 
 function closeAuthModal() {
   authVisible.value = false
   statusMessage.value = ''
+}
+
+function switchAuthMode(mode) {
+  authMode.value = mode
+  statusMessage.value = ''
+  loadCaptcha(mode)
 }
 
 function openPublishModal() {
@@ -187,17 +194,21 @@ function startCodeCountdown(seconds = 60) {
   }, 1000)
 }
 
-async function loadCaptcha() {
+async function loadCaptcha(mode = authMode.value) {
   captchaLoading.value = true
   try {
     const response = await fetch('/api/auth/captcha')
     const data = await readApiData(response, '图片验证码加载失败')
-    registerForm.captchaId = data?.captchaId || ''
-    registerForm.captchaCode = ''
+    const targetForm = mode === 'login' ? loginForm : registerForm
+    // 登录和注册共用验证码接口，根据当前模式写入对应表单，避免互相覆盖
+    targetForm.captchaId = data?.captchaId || ''
+    targetForm.captchaCode = ''
     captchaImage.value = data?.imageBase64 || ''
   } catch (error) {
     statusMessage.value = error.message || '图片验证码加载失败'
-    registerForm.captchaId = ''
+    const targetForm = mode === 'login' ? loginForm : registerForm
+    targetForm.captchaId = ''
+    targetForm.captchaCode = ''
     captchaImage.value = ''
   } finally {
     captchaLoading.value = false
@@ -639,7 +650,7 @@ async function handleRegister() {
 
     await readApiData(response, '注册失败')
     statusMessage.value = '注册成功，请登录'
-    authMode.value = 'login'
+    switchAuthMode('login')
   } catch (error) {
     statusMessage.value = error.message || '注册失败，请稍后重试'
     loadCaptcha()
@@ -659,12 +670,24 @@ async function handleLogin() {
     return
   }
 
+  if (!loginForm.captchaId || !loginForm.captchaCode.trim()) {
+    statusMessage.value = '请输入图片验证码'
+    return
+  }
+
   loading.value = true
   try {
+    // 登录接口后端强制校验图形验证码，提交前必须带上 captchaId/captchaCode
+    const loginPayload = {
+      email: loginForm.email,
+      password: loginForm.password,
+      captchaId: loginForm.captchaId,
+      captchaCode: loginForm.captchaCode
+    }
     const response = await fetch('/api/auth/login', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(loginForm)
+      body: JSON.stringify(loginPayload)
     })
 
     const data = await readApiData(response, '登录失败')
@@ -680,6 +703,7 @@ async function handleLogin() {
     localStorage.setItem(STORAGE_USER_KEY, JSON.stringify(user))
     closeAuthModal()
   } catch (error) {
+    loadCaptcha('login')
     statusMessage.value = error.message || '登录失败，请检查邮箱或密码'
   } finally {
     loading.value = false
@@ -944,12 +968,20 @@ async function handleLogin() {
             <input v-model.trim="loginForm.email" type="email" placeholder="you@example.com" />
             <label>密码</label>
             <input v-model="loginForm.password" type="password" placeholder="请输入密码" />
+            <label>图片验证码</label>
+            <div class="code-row">
+              <input v-model.trim="loginForm.captchaCode" type="text" maxlength="4" placeholder="请输入图片验证码" />
+              <button class="line-btn captcha-btn" type="button" :disabled="captchaLoading" @click="loadCaptcha('login')">
+                <img v-if="captchaImage" class="captcha-img" :src="captchaImage" alt="captcha" />
+                <span v-else>{{ captchaLoading ? '加载中...' : '刷新' }}</span>
+              </button>
+            </div>
             <button class="primary-btn full" type="submit" :disabled="loading">
               {{ loading ? '提交中...' : '登录' }}
             </button>
             <p class="switch-tip">
               如果没有 PaperHub 账户，
-              <button class="switch-link" type="button" @click="authMode = 'register'">去注册</button>
+              <button class="switch-link" type="button" @click="switchAuthMode('register')">去注册</button>
             </p>
           </form>
 
@@ -959,7 +991,7 @@ async function handleLogin() {
             <label>图片验证码</label>
             <div class="code-row">
               <input v-model.trim="registerForm.captchaCode" type="text" maxlength="4" placeholder="请输入图片验证码" />
-              <button class="line-btn captcha-btn" type="button" :disabled="captchaLoading" @click="loadCaptcha">
+              <button class="line-btn captcha-btn" type="button" :disabled="captchaLoading" @click="loadCaptcha('register')">
                 <img v-if="captchaImage" class="captcha-img" :src="captchaImage" alt="captcha" />
                 <span v-else>{{ captchaLoading ? '加载中...' : '刷新' }}</span>
               </button>
@@ -980,7 +1012,7 @@ async function handleLogin() {
             </button>
             <p class="switch-tip">
               已有 PaperHub 账户，
-              <button class="switch-link" type="button" @click="authMode = 'login'">去登录</button>
+              <button class="switch-link" type="button" @click="switchAuthMode('login')">去登录</button>
             </p>
           </form>
 

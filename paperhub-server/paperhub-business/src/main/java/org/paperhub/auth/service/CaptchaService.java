@@ -1,7 +1,10 @@
 package org.paperhub.auth.service;
 
+import org.paperhub.auth.constant.AuthRedisKeys;
 import org.paperhub.auth.vo.CaptchaVO;
+import org.paperhub.config.AuthProperties;
 import org.paperhub.exception.BizException;
+import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.stereotype.Service;
 import org.springframework.util.StringUtils;
 
@@ -14,56 +17,79 @@ import java.awt.image.BufferedImage;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.security.SecureRandom;
-import java.time.LocalDateTime;
 import java.util.Base64;
-import java.util.Map;
 import java.util.UUID;
-import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.TimeUnit;
 
 @Service
 public class CaptchaService {
     private static final SecureRandom RANDOM = new SecureRandom();
     private static final String CHARS = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
     private static final int CODE_LENGTH = 4;
-    private static final int EXPIRE_SECONDS = 300;
     private static final int WIDTH = 120;
     private static final int HEIGHT = 44;
+    private static final String CAPTCHA_ERROR_MESSAGE = "图形验证码错误或已过期";
 
-    private final Map<String, CaptchaRecord> captchaStore = new ConcurrentHashMap<>();
+    private final StringRedisTemplate redisTemplate;
+    private final AuthProperties authProperties;
+
+    public CaptchaService(StringRedisTemplate redisTemplate, AuthProperties authProperties) {
+        this.redisTemplate = redisTemplate;
+        this.authProperties = authProperties;
+    }
 
     public CaptchaVO createCaptcha() {
-        cleanupExpiredRecords();
-
         String code = randomCode();
         String captchaId = UUID.randomUUID().toString().replace("-", "");
-        LocalDateTime expireAt = LocalDateTime.now().plusSeconds(EXPIRE_SECONDS);
-        captchaStore.put(captchaId, new CaptchaRecord(code, expireAt));
+        int expireSeconds = authProperties.getCaptcha().getExpireSeconds();
+
+        redisTemplate.opsForValue().set(
+                AuthRedisKeys.captcha(captchaId),
+                code.toLowerCase(),
+                expireSeconds,
+                TimeUnit.SECONDS);
 
         CaptchaVO vo = new CaptchaVO();
         vo.setCaptchaId(captchaId);
         vo.setImageBase64("data:image/png;base64," + renderPngBase64(code));
-        vo.setExpiresInSeconds(EXPIRE_SECONDS);
+        vo.setExpiresInSeconds(expireSeconds);
         return vo;
     }
 
-    public void verify(String captchaId, String captchaCode, boolean removeOnSuccess) {
+    public void verify(String captchaId, String captchaCode) {
         if (!StringUtils.hasText(captchaId) || !StringUtils.hasText(captchaCode)) {
-            throw new BizException("图片验证码不能为空");
+            throw new BizException(CAPTCHA_ERROR_MESSAGE);
         }
 
-        CaptchaRecord record = captchaStore.get(captchaId);
-        if (record == null) {
-            throw new BizException("图片验证码不存在或已过期");
+        String key = AuthRedisKeys.captcha(captchaId);
+        String storedCode = redisTemplate.opsForValue().get(key);
+        if (!StringUtils.hasText(storedCode)) {
+            throw new BizException(CAPTCHA_ERROR_MESSAGE);
         }
-        if (LocalDateTime.now().isAfter(record.expireAt)) {
-            captchaStore.remove(captchaId);
-            throw new BizException("图片验证码已过期，请刷新后重试");
+
+        String inputCode = captchaCode.trim().toLowerCase();
+        if (!storedCode.equals(inputCode)) {
+            increaseFailCount(captchaId);
+            throw new BizException(CAPTCHA_ERROR_MESSAGE);
         }
-        if (!record.code.equalsIgnoreCase(captchaCode.trim())) {
-            throw new BizException("图片验证码错误");
+
+        redisTemplate.delete(key);
+        redisTemplate.delete(AuthRedisKeys.captchaFail(captchaId));
+    }
+
+    public void verify(String captchaId, String captchaCode, boolean removeOnSuccess) {
+        verify(captchaId, captchaCode);
+    }
+
+    private void increaseFailCount(String captchaId) {
+        String failKey = AuthRedisKeys.captchaFail(captchaId);
+        Long count = redisTemplate.opsForValue().increment(failKey);
+        if (count != null && count == 1L) {
+            redisTemplate.expire(failKey, authProperties.getCaptcha().getExpireSeconds(), TimeUnit.SECONDS);
         }
-        if (removeOnSuccess) {
-            captchaStore.remove(captchaId);
+        if (count != null && count >= authProperties.getCaptcha().getMaxFailCount()) {
+            redisTemplate.delete(AuthRedisKeys.captcha(captchaId));
+            redisTemplate.delete(failKey);
         }
     }
 
@@ -124,20 +150,5 @@ public class CaptchaService {
 
     private Color randomMutedColor() {
         return new Color(140 + RANDOM.nextInt(80), 150 + RANDOM.nextInt(80), 160 + RANDOM.nextInt(80));
-    }
-
-    private void cleanupExpiredRecords() {
-        LocalDateTime now = LocalDateTime.now();
-        captchaStore.entrySet().removeIf(entry -> now.isAfter(entry.getValue().expireAt));
-    }
-
-    private static class CaptchaRecord {
-        private final String code;
-        private final LocalDateTime expireAt;
-
-        private CaptchaRecord(String code, LocalDateTime expireAt) {
-            this.code = code;
-            this.expireAt = expireAt;
-        }
     }
 }

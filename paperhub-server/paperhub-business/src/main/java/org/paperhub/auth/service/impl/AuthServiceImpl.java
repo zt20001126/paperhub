@@ -10,8 +10,10 @@ import org.paperhub.auth.mapper.AuthMapper;
 import org.paperhub.auth.service.AuthService;
 import org.paperhub.auth.service.CaptchaService;
 import org.paperhub.auth.service.EmailCodeService;
+import org.paperhub.auth.service.LoginFailService;
 import org.paperhub.auth.vo.CaptchaVO;
 import org.paperhub.auth.vo.LoginUserVO;
+import org.paperhub.config.AuthProperties;
 import org.paperhub.exception.BizException;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
@@ -30,16 +32,22 @@ public class AuthServiceImpl implements AuthService {
     private final PasswordEncoder passwordEncoder;
     private final EmailCodeService emailCodeService;
     private final CaptchaService captchaService;
+    private final LoginFailService loginFailService;
+    private final AuthProperties authProperties;
 
     public AuthServiceImpl(
             AuthMapper authMapper,
             PasswordEncoder passwordEncoder,
             EmailCodeService emailCodeService,
-            CaptchaService captchaService) {
+            CaptchaService captchaService,
+            LoginFailService loginFailService,
+            AuthProperties authProperties) {
         this.authMapper = authMapper;
         this.passwordEncoder = passwordEncoder;
         this.emailCodeService = emailCodeService;
         this.captchaService = captchaService;
+        this.loginFailService = loginFailService;
+        this.authProperties = authProperties;
     }
 
     @Override
@@ -52,12 +60,13 @@ public class AuthServiceImpl implements AuthService {
      */
     @Override
     public void sendRegisterCode(SendCodeRequest request) {
-        captchaService.verify(request.getCaptchaId(), request.getCaptchaCode(), false);
-        SysUser user = findByEmail(request.getEmail());
+        String email = normalizeEmail(request.getEmail());
+        SysUser user = findByEmail(email);
         if (user != null) {
             throw new BizException("该邮箱已注册");
         }
-        emailCodeService.sendCode(request.getEmail());
+        captchaService.verify(request.getCaptchaId(), request.getCaptchaCode());
+        emailCodeService.sendCode(email);
     }
 
     /**
@@ -65,19 +74,19 @@ public class AuthServiceImpl implements AuthService {
      */
     @Override
     public void register(RegisterRequest request) {
-        captchaService.verify(request.getCaptchaId(), request.getCaptchaCode(), true);
+        String email = normalizeEmail(request.getEmail());
         validateRegisterPassword(request);
 
-        SysUser existing = findByEmail(request.getEmail());
+        SysUser existing = findByEmail(email);
         if (existing != null) {
             throw new BizException("该邮箱已注册");
         }
-        emailCodeService.verifyCode(request.getEmail(), request.getEmailCode());
+        emailCodeService.verifyCode(email, request.getEmailCode());
 
         SysUser newUser = new SysUser();
-        newUser.setEmail(request.getEmail());
+        newUser.setEmail(email);
         newUser.setPassword(passwordEncoder.encode(request.getPassword()));
-        newUser.setNickname(defaultNickname(request.getEmail()));
+        newUser.setNickname(defaultNickname(email));
         newUser.setStatus(1);
         newUser.setPoints(100);
         authMapper.insert(newUser);
@@ -88,16 +97,23 @@ public class AuthServiceImpl implements AuthService {
      */
     @Override
     public LoginUserVO login(LoginRequest request) {
-        SysUser user = findByEmail(request.getEmail());
+        String email = normalizeEmail(request.getEmail());
+        loginFailService.checkLocked(email);
+        captchaService.verify(request.getCaptchaId(), request.getCaptchaCode());
+
+        SysUser user = findByEmail(email);
         if (user == null) {
-            throw new BizException("账号不存在");
+            loginFailService.recordFail(email);
+            throw new BizException("账号或密码错误");
         }
         if (!Integer.valueOf(1).equals(user.getStatus())) {
             throw new BizException("账号已被禁用");
         }
         if (!verifyPassword(user, request.getPassword())) {
-            throw new BizException("邮箱或密码错误");
+            loginFailService.recordFail(email);
+            throw new BizException("账号或密码错误");
         }
+        loginFailService.clearFail(email);
 
         String token = UUID.randomUUID().toString().replace("-", "");
         TOKEN_USER_MAP.put(token, user.getId());
@@ -154,7 +170,8 @@ public class AuthServiceImpl implements AuthService {
         if (!password.equals(confirmPassword)) {
             throw new BizException("两次输入的密码不一致");
         }
-        if (!PASSWORD_PATTERN.matcher(password).matches()) {
+        if (password.length() < authProperties.getPassword().getMinLength()
+                || !PASSWORD_PATTERN.matcher(password).matches()) {
             throw new BizException("密码长度需至少8位，并且必须同时包含字母和数字");
         }
     }
@@ -182,6 +199,10 @@ public class AuthServiceImpl implements AuthService {
         LambdaQueryWrapper<SysUser> query = new LambdaQueryWrapper<>();
         query.eq(SysUser::getEmail, email).last("LIMIT 1");
         return authMapper.selectOne(query);
+    }
+
+    private String normalizeEmail(String email) {
+        return email == null ? "" : email.trim().toLowerCase();
     }
 
     private String defaultNickname(String email) {

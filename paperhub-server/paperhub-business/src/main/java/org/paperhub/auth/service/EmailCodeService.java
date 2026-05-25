@@ -1,65 +1,105 @@
 package org.paperhub.auth.service;
 
+import org.paperhub.auth.constant.AuthRedisKeys;
+import org.paperhub.config.AuthProperties;
 import org.paperhub.exception.BizException;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.data.redis.core.StringRedisTemplate;
+import org.springframework.mail.MailException;
 import org.springframework.mail.SimpleMailMessage;
 import org.springframework.mail.javamail.JavaMailSender;
 import org.springframework.stereotype.Service;
+import org.springframework.util.StringUtils;
 
 import java.security.SecureRandom;
-import java.time.LocalDateTime;
-import java.util.Map;
-import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.TimeUnit;
 
 @Service
 public class EmailCodeService {
     private static final SecureRandom RANDOM = new SecureRandom();
-    private static final int EXPIRE_MINUTES = 5;
+    private static final String EMAIL_CODE_ERROR_MESSAGE = "邮箱验证码错误或已过期";
 
     private final JavaMailSender mailSender;
+    private final StringRedisTemplate redisTemplate;
+    private final AuthProperties authProperties;
     private final String from;
-    private final Map<String, CodeRecord> codeStore = new ConcurrentHashMap<>();
 
-    public EmailCodeService(JavaMailSender mailSender, @Value("${spring.mail.username}") String from) {
+    public EmailCodeService(
+            JavaMailSender mailSender,
+            StringRedisTemplate redisTemplate,
+            AuthProperties authProperties,
+            @Value("${spring.mail.username}") String from) {
         this.mailSender = mailSender;
+        this.redisTemplate = redisTemplate;
+        this.authProperties = authProperties;
         this.from = from;
     }
 
     public void sendCode(String email) {
-        String code = String.format("%06d", RANDOM.nextInt(1_000_000));
-        LocalDateTime expireAt = LocalDateTime.now().plusMinutes(EXPIRE_MINUTES);
-        codeStore.put(email, new CodeRecord(code, expireAt));
+        String cooldownKey = AuthRedisKeys.registerEmailCodeCooldown(email);
+        if (Boolean.TRUE.equals(redisTemplate.hasKey(cooldownKey))) {
+            throw new BizException("发送过于频繁，请稍后再试");
+        }
 
+        String code = String.format("%06d", RANDOM.nextInt(1_000_000));
+        sendMail(email, code);
+
+        redisTemplate.opsForValue().set(
+                AuthRedisKeys.registerEmailCode(email),
+                code,
+                authProperties.getEmailCode().getExpireSeconds(),
+                TimeUnit.SECONDS);
+        redisTemplate.opsForValue().set(
+                cooldownKey,
+                "1",
+                authProperties.getEmailCode().getCooldownSeconds(),
+                TimeUnit.SECONDS);
+        redisTemplate.delete(AuthRedisKeys.registerEmailCodeFail(email));
+    }
+
+    public void verifyCode(String email, String code) {
+        if (!StringUtils.hasText(email) || !StringUtils.hasText(code)) {
+            throw new BizException(EMAIL_CODE_ERROR_MESSAGE);
+        }
+
+        String key = AuthRedisKeys.registerEmailCode(email);
+        String storedCode = redisTemplate.opsForValue().get(key);
+        if (!StringUtils.hasText(storedCode)) {
+            throw new BizException(EMAIL_CODE_ERROR_MESSAGE);
+        }
+
+        if (!storedCode.equals(code.trim())) {
+            increaseFailCount(email);
+            throw new BizException(EMAIL_CODE_ERROR_MESSAGE);
+        }
+
+        redisTemplate.delete(key);
+        redisTemplate.delete(AuthRedisKeys.registerEmailCodeFail(email));
+    }
+
+    private void sendMail(String email, String code) {
         SimpleMailMessage message = new SimpleMailMessage();
         message.setFrom(from);
         message.setTo(email);
         message.setSubject("PaperHub 注册验证码");
-        message.setText("您的 PaperHub 注册验证码为：" + code + "，" + EXPIRE_MINUTES + "分钟内有效。");
-        mailSender.send(message);
+        message.setText("您的 PaperHub 注册验证码为：" + code + "，"
+                + authProperties.getEmailCode().getExpireSeconds() / 60 + "分钟内有效。");
+        try {
+            mailSender.send(message);
+        } catch (MailException ex) {
+            throw new BizException("邮件发送失败，请稍后再试");
+        }
     }
 
-    public void verifyCode(String email, String code) {
-        CodeRecord record = codeStore.get(email);
-        if (record == null) {
-            throw new BizException("请先获取验证码");
+    private void increaseFailCount(String email) {
+        String failKey = AuthRedisKeys.registerEmailCodeFail(email);
+        Long count = redisTemplate.opsForValue().increment(failKey);
+        if (count != null && count == 1L) {
+            redisTemplate.expire(failKey, authProperties.getEmailCode().getExpireSeconds(), TimeUnit.SECONDS);
         }
-        if (LocalDateTime.now().isAfter(record.expireAt)) {
-            codeStore.remove(email);
-            throw new BizException("验证码已过期，请重新获取");
-        }
-        if (!record.code.equals(code)) {
-            throw new BizException("验证码错误");
-        }
-        codeStore.remove(email);
-    }
-
-    private static class CodeRecord {
-        private final String code;
-        private final LocalDateTime expireAt;
-
-        private CodeRecord(String code, LocalDateTime expireAt) {
-            this.code = code;
-            this.expireAt = expireAt;
+        if (count != null && count >= authProperties.getEmailCode().getMaxFailCount()) {
+            redisTemplate.delete(AuthRedisKeys.registerEmailCode(email));
+            redisTemplate.delete(failKey);
         }
     }
 }
