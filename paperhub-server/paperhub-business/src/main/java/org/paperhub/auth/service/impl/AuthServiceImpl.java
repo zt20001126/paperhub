@@ -5,7 +5,7 @@ import org.paperhub.auth.dto.LoginRequest;
 import org.paperhub.auth.dto.RegisterRequest;
 import org.paperhub.auth.dto.SendCodeRequest;
 import org.paperhub.auth.dto.UpdateUserInfoRequest;
-import org.paperhub.auth.entity.SysUser;
+import org.paperhub.auth.po.SysUser;
 import org.paperhub.auth.mapper.AuthMapper;
 import org.paperhub.auth.service.AuthService;
 import org.paperhub.auth.service.CaptchaService;

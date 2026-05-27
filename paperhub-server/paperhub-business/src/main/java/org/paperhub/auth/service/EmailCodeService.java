@@ -42,8 +42,10 @@ public class EmailCodeService {
         }
 
         String code = String.format("%06d", RANDOM.nextInt(1_000_000));
+        // 先发送邮件，发送成功后再写入 Redis，避免用户收到不可校验的验证码。
         sendMail(email, code);
 
+        // 邮箱验证码和发送冷却分开存储：验证码控制有效期，冷却 Key 控制重复发送频率。
         redisTemplate.opsForValue().set(
                 AuthRedisKeys.registerEmailCode(email),
                 code,
@@ -58,6 +60,7 @@ public class EmailCodeService {
     }
 
     public void verifyCode(String email, String code) {
+        // 邮箱验证码只用于注册流程，校验成功后会被删除，不能重复使用。
         if (!StringUtils.hasText(email) || !StringUtils.hasText(code)) {
             throw new BizException(EMAIL_CODE_ERROR_MESSAGE);
         }
@@ -69,6 +72,7 @@ public class EmailCodeService {
         }
 
         if (!storedCode.equals(code.trim())) {
+            // 邮箱验证码输错次数达到阈值后清除验证码，要求用户重新获取。
             increaseFailCount(email);
             throw new BizException(EMAIL_CODE_ERROR_MESSAGE);
         }
@@ -95,6 +99,7 @@ public class EmailCodeService {
         String failKey = AuthRedisKeys.registerEmailCodeFail(email);
         Long count = redisTemplate.opsForValue().increment(failKey);
         if (count != null && count == 1L) {
+            // 失败计数跟随验证码有效期自动过期，避免过期验证码留下无意义的失败记录。
             redisTemplate.expire(failKey, authProperties.getEmailCode().getExpireSeconds(), TimeUnit.SECONDS);
         }
         if (count != null && count >= authProperties.getEmailCode().getMaxFailCount()) {

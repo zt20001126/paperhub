@@ -2,7 +2,7 @@ package org.paperhub.topic.service.impl;
 
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import org.paperhub.exception.BizException;
-import org.paperhub.topic.entity.HotTopic;
+import org.paperhub.topic.po.HotTopic;
 import org.paperhub.topic.mapper.HotTopicMapper;
 import org.paperhub.topic.service.HotTopicService;
 import org.paperhub.topic.vo.HotTopicPageVO;

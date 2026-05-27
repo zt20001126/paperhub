@@ -1,4 +1,4 @@
-package org.paperhub.auth.entity;
+package org.paperhub.literature.po;
 
 import com.baomidou.mybatisplus.annotation.IdType;
 import com.baomidou.mybatisplus.annotation.TableField;

@@ -1,7 +1,7 @@
 package org.paperhub.topic.mapper;
 
 import com.baomidou.mybatisplus.core.mapper.BaseMapper;
-import org.paperhub.topic.entity.HotTopic;
+import org.paperhub.topic.po.HotTopic;
 import org.springframework.stereotype.Repository;
 
 @Repository

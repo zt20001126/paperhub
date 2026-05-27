@@ -1,11 +1,11 @@
 package org.paperhub.group.service.impl;
 
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
-import org.paperhub.auth.entity.SysUser;
+import org.paperhub.auth.po.SysUser;
 import org.paperhub.auth.mapper.AuthMapper;
 import org.paperhub.exception.BizException;
 import org.paperhub.group.dto.CreatePostRequest;
-import org.paperhub.group.entity.Post;
+import org.paperhub.group.po.Post;
 import org.paperhub.group.mapper.PostMapper;
 import org.paperhub.group.service.PostService;
 import org.paperhub.group.vo.PostListVO;

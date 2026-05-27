@@ -1,7 +1,7 @@
 package org.paperhub.group.mapper;
 
 import com.baomidou.mybatisplus.core.mapper.BaseMapper;
-import org.paperhub.group.entity.Post;
+import org.paperhub.group.po.Post;
 import org.springframework.stereotype.Repository;
 
 @Repository

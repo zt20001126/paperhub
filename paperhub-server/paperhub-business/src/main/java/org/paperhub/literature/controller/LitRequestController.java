@@ -1,7 +1,7 @@
 package org.paperhub.literature.controller;
 
-import org.paperhub.auth.dto.CreateLitRequestRequest;
-import org.paperhub.auth.entity.LitRequest;
+import org.paperhub.literature.dto.CreateLitRequestRequest;
+import org.paperhub.literature.po.LitRequest;
 import org.paperhub.auth.vo.PageResult;
 import org.paperhub.literature.service.LitRequestService;
 import org.paperhub.result.Result;

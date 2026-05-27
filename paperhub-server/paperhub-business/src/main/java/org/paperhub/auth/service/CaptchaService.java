@@ -43,6 +43,7 @@ public class CaptchaService {
         String captchaId = UUID.randomUUID().toString().replace("-", "");
         int expireSeconds = authProperties.getCaptcha().getExpireSeconds();
 
+        // 图形验证码只在 Redis 中保存小写答案，前端只拿 captchaId 和图片，避免明文验证码泄露。
         redisTemplate.opsForValue().set(
                 AuthRedisKeys.captcha(captchaId),
                 code.toLowerCase(),
@@ -57,6 +58,7 @@ public class CaptchaService {
     }
 
     public void verify(String captchaId, String captchaCode) {
+        // 登录、注册发码等入口共用该校验逻辑，缺少 ID 或验证码都视为校验失败。
         if (!StringUtils.hasText(captchaId) || !StringUtils.hasText(captchaCode)) {
             throw new BizException(CAPTCHA_ERROR_MESSAGE);
         }
@@ -69,10 +71,12 @@ public class CaptchaService {
 
         String inputCode = captchaCode.trim().toLowerCase();
         if (!storedCode.equals(inputCode)) {
+            // 同一个 captchaId 连续输错会累计失败次数，超过阈值后验证码作废，防止暴力试码。
             increaseFailCount(captchaId);
             throw new BizException(CAPTCHA_ERROR_MESSAGE);
         }
 
+        // 图形验证码一次性使用，校验成功后立即删除答案和失败计数。
         redisTemplate.delete(key);
         redisTemplate.delete(AuthRedisKeys.captchaFail(captchaId));
     }
@@ -85,6 +89,7 @@ public class CaptchaService {
         String failKey = AuthRedisKeys.captchaFail(captchaId);
         Long count = redisTemplate.opsForValue().increment(failKey);
         if (count != null && count == 1L) {
+            // 失败计数 TTL 与验证码 TTL 保持一致，避免 Redis 中残留无效计数。
             redisTemplate.expire(failKey, authProperties.getCaptcha().getExpireSeconds(), TimeUnit.SECONDS);
         }
         if (count != null && count >= authProperties.getCaptcha().getMaxFailCount()) {
