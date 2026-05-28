@@ -140,6 +140,8 @@ paperhub-server/paperhub-business/src/main/resources/application.yml
 - `spring.mail.port`：SMTP 端口
 - `spring.mail.username`：发件邮箱
 - `spring.mail.password`：邮箱授权码
+- `paperhub.minio.endpoint`：MinIO API 地址
+- `paperhub.minio.bucket`：应助 PDF 存储桶
 
 建议不要把真实邮箱授权码提交到公开仓库。
 
@@ -175,6 +177,31 @@ curl -X POST http://localhost:8080/api/auth/login \
   -d "{\"email\":\"user@example.com\",\"password\":\"abc12345\"}"
 ```
 
+### 5. 我要应助 PDF 上传
+
+新增功能名称：我要应助 PDF 上传。
+
+主要改动：
+
+- 前端文献详情页“我要应助”只允许选择 `.pdf` 文件。
+- 后端新增 `POST /api/lit-request/assist`，校验登录和 PDF 文件后上传到 MinIO。
+- 数据库新增 `literature_assist` 表记录应助文件元数据。
+
+测试示例：
+
+```bash
+curl -X POST http://localhost:8080/api/lit-request/assist \
+  -H "Authorization: Bearer your-token" \
+  -F "litRequestId=1" \
+  -F "file=@D:/test/paper.pdf;type=application/pdf"
+```
+
+注意事项：
+
+- 需要先启动 MySQL、Redis、MinIO 和后端服务。
+- MinIO 默认地址为 `http://localhost:9000`，默认 bucket 为 `paperhub-literature`。
+- 本次只实现提交和保存，应助审核、下载、采纳和积分结算后续实现。
+
 ## 更多文档
 
 - 接口文档：`docs/api.md`
@@ -184,4 +211,4 @@ curl -X POST http://localhost:8080/api/auth/login \
 ## 当前限制
 
 - 登录 token、邮箱验证码、图片验证码当前都存储在后端内存中，服务重启后会失效。
-- 前端存在 `/sub_lit_help` 文件上传预留调用，但后端当前没有对应接口。
+- 我要应助已支持 PDF 上传，但暂未实现发布者审核、下载、采纳和积分结算。

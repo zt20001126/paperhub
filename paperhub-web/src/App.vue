@@ -2,7 +2,8 @@
 import { computed, onBeforeUnmount, onMounted, reactive, ref } from 'vue'
 
 const STORAGE_USER_KEY = 'paperhub_login_user'
-const HELP_SUBMIT_API = '/sub_lit_help'
+const HELP_SUBMIT_API = '/api/lit-request/assist'
+const HELP_FILE_INPUT_ID = 'help-upload-input'
 
 const showWelcome = ref(true)
 const authVisible = ref(false)
@@ -430,17 +431,17 @@ function backToList() {
 function onHelpFileChange(event) {
   const file = event.target.files?.[0]
   if (!file) return
+  const extension = file.name.split('.').pop()?.toLowerCase()
+  if (extension !== 'pdf') {
+    helpFile.value = null
+    helpFileName.value = ''
+    helpHint.value = '只能上传 pdf 结尾的文件'
+    event.target.value = ''
+    return
+  }
   helpFile.value = file
   helpFileName.value = file.name
   helpHint.value = ''
-}
-
-function submitLitHelp() {
-  if (!helpFile.value) {
-    helpHint.value = '请先上传文献文件'
-    return
-  }
-  helpHint.value = `提交接口已预留：${HELP_SUBMIT_API}，当前未接入后端处理逻辑`
 }
 
 async function submitLitHelpRequest() {
@@ -459,12 +460,17 @@ async function submitLitHelpRequest() {
     return
   }
 
+  const extension = helpFile.value.name.split('.').pop()?.toLowerCase()
+  if (extension !== 'pdf') {
+    helpHint.value = '只能上传 pdf 结尾的文件'
+    return
+  }
+
   helpSubmitting.value = true
   helpHint.value = ''
   try {
     const formData = new FormData()
     formData.append('litRequestId', String(selectedLit.value.id))
-    formData.append('userId', String(currentUser.value.id))
     formData.append('file', helpFile.value)
 
     const headers = currentUser.value?.token ? { Authorization: `Bearer ${currentUser.value.token}` } : undefined
@@ -478,6 +484,8 @@ async function submitLitHelpRequest() {
     helpHint.value = '提交成功，等待发布者处理'
     helpFile.value = null
     helpFileName.value = ''
+    const input = document.getElementById(HELP_FILE_INPUT_ID)
+    if (input) input.value = ''
   } catch (error) {
     helpHint.value = error.message || '应助提交失败，请稍后重试'
   } finally {
@@ -938,7 +946,7 @@ async function handleLogin() {
                 </div>
                 <div class="help-upload-area">
                   <label class="publish-btn upload-btn" for="help-upload-input">选择文件</label>
-                  <input id="help-upload-input" class="hidden-input" type="file" @change="onHelpFileChange" />
+                  <input :id="HELP_FILE_INPUT_ID" class="hidden-input" type="file" accept=".pdf,application/pdf" @change="onHelpFileChange" />
                   <span v-if="helpFileName" class="file-name">{{ helpFileName }}</span>
                   <span v-else class="file-placeholder">尚未选择文件</span>
                 </div>

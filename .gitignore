@@ -12,3 +12,6 @@ Thumbs.db
 
 # Local environment
 .env
+
+# MinIO
+.minio-data/

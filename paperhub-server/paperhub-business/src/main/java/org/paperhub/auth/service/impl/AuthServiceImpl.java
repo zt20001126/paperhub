@@ -133,15 +133,7 @@ public class AuthServiceImpl implements AuthService {
      */
     @Override
     public void updateUserInfo(String token, UpdateUserInfoRequest request) {
-        Long userId = TOKEN_USER_MAP.get(token);
-        if (userId == null) {
-            throw new BizException("登录状态失效，请重新登录");
-        }
-
-        SysUser user = authMapper.selectById(userId);
-        if (user == null) {
-            throw new BizException("用户不存在");
-        }
+        SysUser user = getCurrentUser(token);
 
         boolean hasUpdate = false;
         if (StringUtils.hasText(request.getNickname())) {
@@ -162,6 +154,23 @@ public class AuthServiceImpl implements AuthService {
         }
 
         authMapper.updateById(user);
+    }
+
+    /**
+     * Centralize token lookup so business APIs do not trust client-submitted user IDs.
+     */
+    @Override
+    public SysUser getCurrentUser(String token) {
+        Long userId = TOKEN_USER_MAP.get(token);
+        if (userId == null) {
+            throw new BizException("登录状态失效，请重新登录");
+        }
+
+        SysUser user = authMapper.selectById(userId);
+        if (user == null) {
+            throw new BizException("用户不存在");
+        }
+        return user;
     }
 
     private void validateRegisterPassword(RegisterRequest request) {

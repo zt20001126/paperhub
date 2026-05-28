@@ -283,7 +283,7 @@ npm run dev
 
 ## 注意事项
 
-- 后端只配置了 MySQL 和 SMTP 邮件服务，未发现 Redis、消息队列、对象存储等其他必需服务。
-- 前端代码中有一个 `/sub_lit_help` 文件上传接口，但后端当前没有对应 Controller；这部分功能属于预留或未完成接口。
+- 后端已配置 MySQL、Redis、SMTP 和 MinIO；我要应助 PDF 上传依赖 MinIO。
+- 前端“我要应助”调用 `/api/lit-request/assist`，后端会校验并保存 PDF 应助记录。
 - 登录 token 当前保存在后端内存 `ConcurrentHashMap` 中，服务重启后 token 会失效。
 - 如果 Docker MySQL 没有暴露到本机 `3306`，需要同步修改 `application.yml` 中的 `spring.datasource.url`。

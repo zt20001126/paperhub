@@ -269,6 +269,36 @@ http://localhost:8080
 - 用户积分不足
 - 参数为空或积分小于 0
 
+### 我要应助
+
+- 接口名称：提交应助 PDF
+- 请求方式：`POST`
+- 路径：`/api/lit-request/assist`
+- 请求类型：`multipart/form-data`
+- 请求头：`Authorization: Bearer <token>`
+
+请求参数：
+
+| 字段 | 类型 | 必填 | 说明 |
+| --- | --- | --- | --- |
+| `litRequestId` | `number` | 是 | 文献求助 ID |
+| `file` | `file` | 是 | 只能上传 `.pdf` 文件 |
+
+返回参数：
+
+| 字段 | 类型 | 说明 |
+| --- | --- | --- |
+| `data` | `null` | 成功时为空 |
+
+失败场景：
+
+- 未登录或登录状态失效
+- 文献求助不存在
+- 未上传文件
+- 文件名不是 `.pdf` 结尾
+- 文件内容不是有效 PDF
+- MinIO 存储桶不可用或上传失败
+
 ## 热点话题模块
 
 ### 查询热点列表
@@ -353,6 +383,6 @@ http://localhost:8080
 | `viewCount` | `number` | 浏览数 |
 | `publishTime` | `string` | 发布时间 |
 
-## 当前预留接口
+## 当前限制
 
-前端存在 `/sub_lit_help` 文件上传调用，但后端当前没有对应 Controller。该功能属于预留或未完成接口。
+我要应助当前支持 PDF 提交和 MinIO 保存，暂未实现发布者审核、下载、采纳和积分结算。

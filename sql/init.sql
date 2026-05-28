@@ -35,6 +35,22 @@ CREATE TABLE IF NOT EXISTS literature_request (
   KEY idx_literature_request_status (status)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='文献求助表';
 
+CREATE TABLE IF NOT EXISTS literature_assist (
+  id BIGINT NOT NULL AUTO_INCREMENT COMMENT '应助记录ID',
+  lit_request_id BIGINT NOT NULL COMMENT '文献求助ID',
+  user_id BIGINT NOT NULL COMMENT '应助用户ID',
+  original_filename VARCHAR(255) NOT NULL COMMENT '原始PDF文件名',
+  object_name VARCHAR(500) NOT NULL COMMENT 'MinIO对象名称',
+  file_size BIGINT NOT NULL DEFAULT 0 COMMENT '文件大小，单位字节',
+  status INT NOT NULL DEFAULT 0 COMMENT '状态：0已提交，1已采纳，2已拒绝',
+  create_time DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
+  update_time DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',
+  PRIMARY KEY (id),
+  KEY idx_literature_assist_lit_request_id (lit_request_id),
+  KEY idx_literature_assist_user_id (user_id),
+  KEY idx_literature_assist_status (status)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='文献应助记录表';
+
 CREATE TABLE IF NOT EXISTS post (
   id BIGINT NOT NULL AUTO_INCREMENT COMMENT '帖子ID',
   user_id BIGINT NOT NULL COMMENT '发布用户ID',

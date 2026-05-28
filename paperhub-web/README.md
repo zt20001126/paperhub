@@ -1,5 +1,17 @@
-# Vue 3 + Vite
+# PaperHub Web
 
-This template should help get you started developing with Vue 3 in Vite. The template uses Vue 3 `<script setup>` SFCs, check out the [script setup docs](https://v3.vuejs.org/api/sfc-script-setup.html#sfc-script-setup) to learn more.
+Vue 3 + Vite 前端项目，主页面位于 `src/App.vue`。
 
-Learn more about IDE Support for Vue in the [Vue Docs Scaling up Guide](https://vuejs.org/guide/scaling-up/tooling.html#ide-support).
+## 我要应助 PDF 上传
+
+- 文献详情页点击“我要应助”后，只允许选择 `.pdf` 文件。
+- 提交接口：`POST /api/lit-request/assist`。
+- 开发环境通过 Vite `/api` 代理访问后端 `8080` 端口。
+
+## 启动与构建
+
+```bash
+npm install
+npm run dev
+npm run build
+```

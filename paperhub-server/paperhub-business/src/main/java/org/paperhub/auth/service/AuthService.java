@@ -4,6 +4,7 @@ import org.paperhub.auth.dto.LoginRequest;
 import org.paperhub.auth.dto.RegisterRequest;
 import org.paperhub.auth.dto.SendCodeRequest;
 import org.paperhub.auth.dto.UpdateUserInfoRequest;
+import org.paperhub.auth.po.SysUser;
 import org.paperhub.auth.vo.CaptchaVO;
 import org.paperhub.auth.vo.LoginUserVO;
 
@@ -32,4 +33,9 @@ public interface AuthService {
      * Update current user's profile by token.
      */
     void updateUserInfo(String token, UpdateUserInfoRequest request);
+
+    /**
+     * Resolve the current logged-in user from a login token.
+     */
+    SysUser getCurrentUser(String token);
 }

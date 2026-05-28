@@ -7,6 +7,7 @@ PaperHub 不是 Python 项目，不需要 `requirements.txt`。后端依赖由 M
 - JDK：11 或更高版本
 - Maven：3.x
 - MySQL：8.x
+- MinIO：用于保存应助 PDF 文件
 - SMTP 邮件服务：用于发送注册邮箱验证码
 
 ## 后端 Maven 依赖
@@ -26,6 +27,7 @@ PaperHub 不是 Python 项目，不需要 `requirements.txt`。后端依赖由 M
 | `spring-boot-starter-mail` | Spring Boot BOM | 邮箱验证码发送 |
 | MyBatis-Plus | `3.5.7` | ORM 和分页 |
 | MySQL Connector/J | `8.0.33` | MySQL 数据库连接 |
+| MinIO Java SDK | `8.5.12` | PDF 文件上传到 MinIO |
 | `spring-security-crypto` | Spring Boot BOM | BCrypt 密码加密 |
 | `spring-context-support` | Spring Boot BOM | 邮件等 Spring 扩展支持 |
 
@@ -91,3 +93,16 @@ spring:
 ```
 
 注意：邮箱密码应使用授权码，不是登录密码。
+
+### MinIO
+
+我要应助功能会将 PDF 上传到 MinIO。当前配置位于：
+
+```yaml
+paperhub:
+  minio:
+    endpoint: http://localhost:9000
+    access-key: minioadmin
+    secret-key: minioadmin
+    bucket: paperhub-literature
+```

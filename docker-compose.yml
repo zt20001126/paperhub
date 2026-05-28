@@ -37,6 +37,39 @@ services:
       timeout: 5s
       retries: 10
 
+    # MinIO 文件存储服务
+    # 用于存储用户上传文件、图片、PDF等资源
+    # 9000: MinIO API
+    # 9001: MinIO 管理控制台
+  minio:
+    image: quay.io/minio/minio
+    container_name: paperhub-minio
+    restart: unless-stopped
+    ports:
+      - "${MINIO_API_PORT:-9000}:9000"
+      - "${MINIO_CONSOLE_PORT:-9001}:9001"
+    environment:
+      # MinIO 管理员账号
+      MINIO_ROOT_USER: ${MINIO_ROOT_USER:-admin}
+      # MinIO 管理员密码
+      MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD:-123456}
+      # 时区配置
+      TZ: ${TZ:-Asia/Shanghai}
+    # 本地文件挂载目录
+    # 左侧：你电脑本地目录
+    # 右侧：MinIO 容器内部目录
+    volumes:
+      - D:/paperhub/minio-data:/data
+    # 启动 MinIO 服务
+    # /data 为文件存储目录
+    # 9001 为控制台端口
+    command: server /data --console-address ":9001"
+    healthcheck:
+      test: [ "CMD", "curl", "-f", "http://127.0.0.1:9000/minio/health/live" ]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+
 volumes:
   paperhub_mysql_data:
   paperhub_redis_data:

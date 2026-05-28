@@ -46,6 +46,22 @@ sql/init.sql
 | `createTime` | `create_time` | `LocalDateTime` | `DATETIME` | 是 | 默认当前时间 | 创建时间 |
 | `updateTime` | `update_time` | `LocalDateTime` | `DATETIME` | 是 | 自动更新时间 | 更新时间 |
 
+## literature_assist
+
+对应 Java 类：`LitAssist`
+
+| Java 字段 | 数据库字段 | Java 类型 | SQL 类型 | 必填 | 约束/默认值 | 说明 |
+| --- | --- | --- | --- | --- | --- | --- |
+| `id` | `id` | `Long` | `BIGINT` | 是 | 主键，自增 | 应助记录 ID |
+| `litRequestId` | `lit_request_id` | `Long` | `BIGINT` | 是 | 普通索引 | 文献求助 ID |
+| `userId` | `user_id` | `Long` | `BIGINT` | 是 | 普通索引 | 应助用户 ID |
+| `originalFilename` | `original_filename` | `String` | `VARCHAR(255)` | 是 | 无 | 原始 PDF 文件名 |
+| `objectName` | `object_name` | `String` | `VARCHAR(500)` | 是 | 无 | MinIO 对象名称 |
+| `fileSize` | `file_size` | `Long` | `BIGINT` | 是 | 默认 `0` | 文件大小，单位字节 |
+| `status` | `status` | `Integer` | `INT` | 是 | 默认 `0` | 状态，`0` 已提交，`1` 已采纳，`2` 已拒绝 |
+| `createTime` | `create_time` | `LocalDateTime` | `DATETIME` | 是 | 默认当前时间 | 创建时间 |
+| `updateTime` | `update_time` | `LocalDateTime` | `DATETIME` | 是 | 自动更新时间 | 更新时间 |
+
 ## post
 
 对应 Java 类：`Post`
